@@ -7,7 +7,8 @@ exports.upload = async (req, res) => {
             return res.status(400).json({ success: false, message: "No file uploaded" });
         }
 
-        const text = await OCR.readText(req.file.path);
+        const imageSource = req.file.buffer || req.file.path;
+        const text = await OCR.readText(imageSource);
         let data;
         let docType = (req.body.type || "").toUpperCase();
 
@@ -47,9 +48,10 @@ exports.upload = async (req, res) => {
             data
         });
     } catch (err) {
+        console.error("Upload Error:", err);
         res.status(500).json({
             success: false,
-            message: err.message
+            message: err.message || "OCR Processing Error"
         });
     }
 };
