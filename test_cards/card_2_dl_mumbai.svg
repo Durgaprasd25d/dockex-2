@@ -1,0 +1,15 @@
+<svg width="750" height="420" xmlns="http://www.w3.org/2000/svg">
+  <rect width="750" height="420" rx="20" ry="20" fill="#f0fdf4" stroke="#059669" stroke-width="4"/>
+  <rect width="750" height="90" rx="20" ry="20" fill="#065f46"/>
+  <rect width="750" height="20" y="70" fill="#065f46"/>
+  <text x="40" y="45" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="bold" fill="#ffffff">MAHARASHTRA DRIVING LICENCE</text>
+  
+  <text x="40" y="115" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#333333">DL No:</text><text x="240" y="115" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#111827">MH-0220190054321</text>
+  <text x="40" y="160" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#333333">Name:</text><text x="240" y="160" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#111827">ANITA SHARMA</text>
+  <text x="40" y="205" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#333333">Daughter of:</text><text x="240" y="205" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#111827">RAMESH SHARMA</text>
+  <text x="40" y="250" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#333333">DOB:</text><text x="240" y="250" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#111827">25-11-1995</text>
+  <text x="40" y="295" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#333333">Blood Group:</text><text x="240" y="295" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#111827">B+</text>
+  <rect x="560" y="110" width="150" height="180" rx="10" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="595" y="205" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#64748b">PHOTO</text>
+  <text x="40" y="390" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#94a3b8">SAMPLE TEST CARD FOR OCR PIPELINE</text>
+</svg>

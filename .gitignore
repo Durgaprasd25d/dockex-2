@@ -1,0 +1,14 @@
+# dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# build outputs
+client/dist/
+client/build/
+server/uploads/*
+!server/uploads/.gitkeep
+
+# misc
+.DS_Store
+*.log

@@ -1,0 +1,14 @@
+<svg width="750" height="420" xmlns="http://www.w3.org/2000/svg">
+  <rect width="750" height="420" rx="20" ry="20" fill="#fff7ed" stroke="#ea580c" stroke-width="4"/>
+  <rect width="750" height="90" rx="20" ry="20" fill="#7c2d12"/>
+  <rect width="750" height="20" y="70" fill="#7c2d12"/>
+  <text x="40" y="45" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="bold" fill="#ffffff">REGISTRATION CERTIFICATE</text>
+  
+  <text x="40" y="115" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#333333">Registration No:</text><text x="240" y="115" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#111827">OD02AB1234</text>
+  <text x="40" y="160" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#333333">Owner Name:</text><text x="240" y="160" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#111827">AMIT PATEL</text>
+  <text x="40" y="205" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#333333">Engine No:</text><text x="240" y="205" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#111827">ENG987654321</text>
+  <text x="40" y="250" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#333333">Chassis No:</text><text x="240" y="250" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="bold" fill="#111827">CHS123456789</text>
+  <rect x="560" y="110" width="150" height="180" rx="10" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="595" y="205" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#64748b">PHOTO</text>
+  <text x="40" y="390" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#94a3b8">SAMPLE TEST CARD FOR OCR PIPELINE</text>
+</svg>
