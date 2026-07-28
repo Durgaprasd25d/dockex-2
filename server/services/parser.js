@@ -8,7 +8,8 @@ const cleanField = (str) => {
         .replace(/\s*(?:PHOTO|SAMPLE|TEST|CARD).*$/i, '')
         .replace(/^(?:Ee:\s*are\s*|S\s*\n*\s*\d?\s*Flite\s*Fle\s*|[‘'"`\s\-\:\]\[\\\/i\|\#\=\>]+)/gi, '')
         .replace(/[\r\n]+/g, ' ')
-        .replace(/\s+(?:El|NR|E|Sa|Sa\)|4|3|2|1|i|j|a|A|DIESEL|Address|Fuel).*$/i, '') // Remove trailing noise words/digits
+        .replace(/\s+(?:El|NR|DIESEL|Address|Fuel|\d+).*$/i, '') // Remove trailing noise
+        .replace(/^(?:i|j|a|A)\s+/, '') // Remove leading noise letters
         .trim();
 };
 
@@ -26,7 +27,6 @@ exports.extractDL = (text) => {
         else if (raw.startsWith("OR")) raw = "OD" + raw.slice(2);
         else if (raw.startsWith("OD1R")) raw = "OD11R" + raw.slice(4);
         
-        // Exact Indian DL length (15 alphanumeric characters max)
         if (raw.length > 15) raw = raw.slice(0, 15);
         dlNumber = raw;
     }
@@ -38,7 +38,6 @@ exports.extractDL = (text) => {
     if (nameMatch) {
         name = cleanField(nameMatch[1]);
     } else {
-        // Fallback: look at line right above Date Of Birth
         const lineAboveDob = text.match(/\n([A-Z\s]{4,30})\n\s*Date/i);
         name = lineAboveDob ? cleanField(lineAboveDob[1]) : "";
     }
@@ -99,9 +98,7 @@ exports.extractRC = (text) => {
         else if (cleaned.startsWith("AOD")) cleaned = "OD" + cleaned.slice(3);
         else if (cleaned.startsWith("IOD")) cleaned = "OD" + cleaned.slice(3);
         
-        // Remove trailing label noise if captured
         cleaned = cleaned.replace(/(?:VALIDITY|OWNER|FITNESS|ASPERSERIAL).*$/i, '');
-        // Standard Indian RC length (10 chars e.g. OD35D7229)
         if (cleaned.length > 10) cleaned = cleaned.slice(0, 10);
         registration = cleaned;
     }
@@ -116,7 +113,7 @@ exports.extractRC = (text) => {
             || text.match(/Owner\s*:?\s*([A-Za-z ]+)/i);
         owner = ownerMatch ? cleanField(ownerMatch[1]) : "";
     }
-    owner = owner.replace(/\s+(?:Son|Daughter|Wife|Fuel|El).*$/i, '').trim();
+    owner = owner.replace(/\s+(?:Son|Daughter|Wife|Fuel).*$/i, '').trim();
 
     // 3. Father Name matching
     let father = "";
