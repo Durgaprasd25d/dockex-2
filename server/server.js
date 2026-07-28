@@ -7,6 +7,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use("/uploads", express.static("uploads"));
 
@@ -45,8 +46,12 @@ app.use((req, res) => {
     });
 });
 
-const PORT = 5000;
+// Only listen on port when NOT running on Vercel Serverless
+if (!process.env.VERCEL) {
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+        console.log("Server Running on Port " + PORT);
+    });
+}
 
-app.listen(PORT, () => {
-    console.log("Server Running on Port " + PORT);
-});
+module.exports = app;
