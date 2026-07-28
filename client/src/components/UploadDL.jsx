@@ -57,13 +57,17 @@ function UploadDL() {
 
         try {
             const compressedFile = await compressImage(file);
-            const recognizedText = await processImageOCR(compressedFile);
+            let recognizedText = "";
+            try {
+                recognizedText = await processImageOCR(compressedFile);
+            } catch (err) {
+                console.warn("Browser OCR skipped:", err);
+            }
 
             const form = new FormData();
-            if (recognizedText && recognizedText.trim().length > 5) {
+            form.append("image", compressedFile);
+            if (recognizedText && recognizedText.trim().length > 0) {
                 form.append("text", recognizedText);
-            } else {
-                form.append("image", compressedFile);
             }
             form.append("type", "DL");
 

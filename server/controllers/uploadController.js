@@ -8,11 +8,23 @@ exports.uploadDocument = async (req, res) => {
 
         // If text was not provided directly by client browser OCR, execute server OCR
         if (!text && req.file) {
-            text = await ocrService.readText(req.file.buffer || req.file.path);
+            try {
+                text = await ocrService.readText(req.file.buffer || req.file.path);
+            } catch (ocrErr) {
+                console.error("Server OCR error:", ocrErr.message);
+                return res.status(400).json({
+                    success: false,
+                    message: "Server OCR failed or timed out. Please try uploading again.",
+                    error: ocrErr.message
+                });
+            }
         }
 
-        if (!text) {
-            return res.status(400).json({ success: false, message: "No image file or text provided" });
+        if (!text || !text.trim()) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "No readable text found in image. Please ensure image is clear." 
+            });
         }
 
         let data = {};
@@ -55,7 +67,7 @@ exports.uploadDocument = async (req, res) => {
         console.error("Error in uploadDocument:", error);
         return res.status(500).json({
             success: false,
-            message: "OCR processing failed",
+            message: "Document extraction failed",
             error: error.message
         });
     }
