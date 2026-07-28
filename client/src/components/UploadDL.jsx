@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FiUserCheck, FiUploadCloud, FiSearch, FiX, FiAlertTriangle, FiFile } from "react-icons/fi";
 import API from "../services/api";
 import ResultCard from "./ResultCard";
+import { compressImage } from "../utils/compressImage";
 
 function UploadDL() {
     const [file, setFile] = useState(null);
@@ -53,11 +54,12 @@ function UploadDL() {
         setErrorMsg("");
         setLoading(true);
 
-        const form = new FormData();
-        form.append("image", file);
-        form.append("type", "DL");
-
         try {
+            const compressedFile = await compressImage(file);
+            const form = new FormData();
+            form.append("image", compressedFile);
+            form.append("type", "DL");
+
             const res = await API.post("/upload", form);
             if (res.data && res.data.data) {
                 setResult(res.data.data);

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FiTruck, FiUploadCloud, FiSearch, FiX, FiAlertTriangle, FiFile } from "react-icons/fi";
 import API from "../services/api";
 import ResultCard from "./ResultCard";
+import { compressImage } from "../utils/compressImage";
 
 function UploadRC() {
     const [file, setFile] = useState(null);
@@ -53,11 +54,12 @@ function UploadRC() {
         setErrorMsg("");
         setLoading(true);
 
-        const form = new FormData();
-        form.append("image", file);
-        form.append("type", "RC");
-
         try {
+            const compressedFile = await compressImage(file);
+            const form = new FormData();
+            form.append("image", compressedFile);
+            form.append("type", "RC");
+
             const res = await API.post("/upload", form);
             if (res.data && res.data.data) {
                 setResult(res.data.data);
