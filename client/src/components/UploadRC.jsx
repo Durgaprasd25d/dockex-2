@@ -3,6 +3,7 @@ import { FiTruck, FiUploadCloud, FiSearch, FiX, FiAlertTriangle, FiFile } from "
 import API from "../services/api";
 import ResultCard from "./ResultCard";
 import { compressImage } from "../utils/compressImage";
+import { processImageOCR } from "../services/clientOcr";
 
 function UploadRC() {
     const [file, setFile] = useState(null);
@@ -56,8 +57,14 @@ function UploadRC() {
 
         try {
             const compressedFile = await compressImage(file);
+            const recognizedText = await processImageOCR(compressedFile);
+
             const form = new FormData();
-            form.append("image", compressedFile);
+            if (recognizedText && recognizedText.trim().length > 5) {
+                form.append("text", recognizedText);
+            } else {
+                form.append("image", compressedFile);
+            }
             form.append("type", "RC");
 
             const res = await API.post("/upload", form);

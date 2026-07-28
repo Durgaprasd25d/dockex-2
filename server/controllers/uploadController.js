@@ -1,17 +1,21 @@
-const OCR = require("../services/ocrService");
+const ocrService = require("../services/ocrService");
 const parser = require("../services/parser");
 
-exports.upload = async (req, res) => {
+exports.uploadDocument = async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: "No file uploaded" });
+        let text = req.body ? req.body.text : "";
+        let docType = (req.body ? req.body.type : "").toUpperCase();
+
+        // If text was not provided directly by client browser OCR, execute server OCR
+        if (!text && req.file) {
+            text = await ocrService.readText(req.file.buffer || req.file.path);
         }
 
-        const imageSource = req.file.buffer || req.file.path;
-        const text = await OCR.readText(imageSource);
-        let data;
-        let docType = (req.body.type || "").toUpperCase();
+        if (!text) {
+            return res.status(400).json({ success: false, message: "No image file or text provided" });
+        }
 
+        let data = {};
         if (docType === "DL") {
             data = parser.extractDL(text);
         } else if (docType === "RC") {
@@ -41,17 +45,18 @@ exports.upload = async (req, res) => {
             }
         }
 
-        res.json({
+        return res.json({
             success: true,
             detectedType: docType,
-            text,
-            data
+            text: text,
+            data: data
         });
-    } catch (err) {
-        console.error("Upload Error:", err);
-        res.status(500).json({
+    } catch (error) {
+        console.error("Error in uploadDocument:", error);
+        return res.status(500).json({
             success: false,
-            message: err.message || "OCR Processing Error"
+            message: "OCR processing failed",
+            error: error.message
         });
     }
 };
