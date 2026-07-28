@@ -105,3 +105,25 @@ exports.extractPAN = (text) => {
         dob: dobMatch ? (dobMatch[1] || dobMatch[0]) : ""
     };
 };
+
+exports.extractGeneric = (text) => {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const documentTitle = lines.length > 0 ? lines[0] : "Document";
+
+    // Extract all dates
+    const dates = text.match(/\b\d{2}[-\/\.]\d{2}[-\/\.]\d{4}\b/g) || [];
+
+    // Extract reference numbers (alphanumeric codes)
+    const numbers = text.match(/\b[A-Z0-9]{6,20}\b/g) || [];
+
+    // Extract potential names
+    const potentialNames = text.match(/(?:Name|Owner|Holder|Customer|User|To)\s*:?\s*([A-Za-z ]+)/i);
+
+    return {
+        documentTitle: cleanField(documentTitle),
+        extractedName: potentialNames ? cleanField(potentialNames[1]) : "",
+        detectedDates: dates.slice(0, 3).join(", "),
+        referenceNumbers: numbers.slice(0, 5).join(", "),
+        linesProcessed: lines.length
+    };
+};

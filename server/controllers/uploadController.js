@@ -36,8 +36,8 @@ exports.upload = async (req, res) => {
                 docType = "AADHAAR";
                 data = parser.extractAadhaar(text);
             } else {
-                docType = "DL";
-                data = parser.extractDL(text);
+                docType = "DOCUMENT";
+                data = parser.extractGeneric(text);
             }
         }
 
