@@ -213,30 +213,73 @@ exports.extractRC = (text) => {
 };
 
 exports.extractAadhaar = (text) => {
-    const numMatch = text.match(/\d{4}\s\d{4}\s\d{4}/) || text.match(/\d{12}/);
-    const nameMatch = text.match(/Name\s*:?\s*([A-Za-z ]+)/i);
-    const dobMatch = text.match(/(?:DOB|Date of Birth)\s*:?\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i) || text.match(/\d{2}[\/\-]\d{2}[\/\-]\d{4}/);
+    const numMatch = text.match(/\b\d{4}\s\d{4}\s\d{4}\b/) || text.match(/\b\d{12}\b/);
+    
+    // Name matching (matches "Name:", line above "DOB", line below "Government of India", or "To:")
+    const nameMatch = text.match(/Name\s*:?\s*([A-Za-z ]+)/i)
+        || text.match(/(?:To|C\/O|S\/O|D\/O|W\/O)\s*:?\s*([A-Za-z ]+)/i)
+        || text.match(/\n([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\n\s*(?:DOB|Date|Year|\d{2}[\/\-])/i)
+        || text.match(/\n([A-Z\s]{3,30})\n\s*(?:DOB|Date\s*of\s*Birth|Year\s*of\s*Birth|\d{2}[\/\-]\d{2}[\/\-]\d{4})/i);
+
+    const dobMatch = text.match(/(?:DOB|Date of Birth|Year of Birth)\s*:?\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4}|\d{4})/i)
+        || text.match(/\b\d{2}[\/\-]\d{2}[\/\-]\d{4}\b/);
     const genderMatch = text.match(/(Male|Female|Transgender)/i);
+
+    let cleanName = nameMatch ? cleanField(nameMatch[1]) : "";
+    if (cleanName.includes("Government") || cleanName.includes("Identification") || cleanName.includes("Authority") || cleanName.includes("India")) {
+        cleanName = "";
+    }
 
     return {
         aadhaarNumber: numMatch ? numMatch[0] : "",
-        name: nameMatch ? cleanField(nameMatch[1]) : "",
+        name: cleanName,
         dob: dobMatch ? (dobMatch[1] || dobMatch[0]) : "",
         gender: genderMatch ? genderMatch[0] : ""
     };
 };
 
 exports.extractPAN = (text) => {
-    const panMatch = text.match(/[A-Z]{5}[0-9]{4}[A-Z]{1}/);
+    const panMatch = text.match(/\b[A-Z]{5}[0-9]{4}[A-Z]{1}\b/);
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    
+    let name = "";
+    let father = "";
+    let dob = "";
+
+    // 1. Try explicit label matches
     const nameMatch = text.match(/Name\s*:?\s*([A-Za-z ]+)/i);
-    const fatherMatch = text.match(/(?:Father's Name|Father Name)\s*:?\s*([A-Za-z ]+)/i);
-    const dobMatch = text.match(/(?:Date of Birth|DOB)\s*:?\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i) || text.match(/\d{2}[\/\-]\d{2}[\/\-]\d{4}/);
+    const fatherMatch = text.match(/(?:Father's\s*Name|Father\s*Name)\s*:?\s*([A-Za-z ]+)/i);
+    
+    if (nameMatch) name = cleanField(nameMatch[1]);
+    if (fatherMatch) father = cleanField(fatherMatch[1]);
+
+    // 2. Line-based extraction for standard PAN card layout:
+    // [PAN NUMBER] -> Line 1: Name -> Line 2: Father Name -> Line 3: DOB
+    const panIndex = lines.findIndex(l => /[A-Z]{5}[0-9]{4}[A-Z]{1}/.test(l));
+    if (panIndex !== -1) {
+        if (!name && lines[panIndex + 1] && !/Father|Date|DOB|INCOME|GOVT|CARD/i.test(lines[panIndex + 1])) {
+            name = cleanField(lines[panIndex + 1]);
+        }
+        if (!father && lines[panIndex + 2] && !/Father|Date|DOB|INCOME|GOVT|CARD/i.test(lines[panIndex + 2])) {
+            father = cleanField(lines[panIndex + 2]);
+        } else if (!father && lines[panIndex + 3] && !/Father|Date|DOB|INCOME|GOVT|CARD/i.test(lines[panIndex + 3])) {
+            father = cleanField(lines[panIndex + 3]);
+        }
+    }
+
+    // Filter out label words from name & father
+    name = name.replace(/(?:Father|Date|DOB|Birth|INCOME|GOVT|CARD).*$/i, '').trim();
+    father = father.replace(/(?:Father|Date|DOB|Birth|INCOME|GOVT|CARD).*$/i, '').trim();
+
+    const dobMatch = text.match(/(?:Date of Birth|DOB)[^\n]*\n?\s*:?\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i)
+        || text.match(/\b\d{2}[\/\-]\d{2}[\/\-]\d{4}\b/);
+    dob = dobMatch ? (dobMatch[1] || dobMatch[0]) : "";
 
     return {
         panNumber: panMatch ? panMatch[0] : "",
-        name: nameMatch ? cleanField(nameMatch[1]) : "",
-        father: fatherMatch ? cleanField(fatherMatch[1]) : "",
-        dob: dobMatch ? (dobMatch[1] || dobMatch[0]) : ""
+        name: name,
+        father: father,
+        dob: dob
     };
 };
 
