@@ -23,7 +23,7 @@ exports.upload = async (req, res) => {
             data = parser.extractPAN(text);
         } else {
             // Auto detect
-            if (/Vehicle\s*Registration|Regn\s*No|Chassis|Engine|Owner\s*Name/i.test(text)) {
+            if (/Vehicle\s*Registration|Registration|Regn|Chassis|Engine|Owner\s*Name|Maker|Model|Financier|Vehicle\s*Class/i.test(text)) {
                 docType = "RC";
                 data = parser.extractRC(text);
             } else if (/Licence|DRIVING|Validity|DL\s*No|Son\/Daughter\/Wife\s*of/i.test(text)) {

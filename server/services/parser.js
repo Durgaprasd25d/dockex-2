@@ -6,7 +6,8 @@ const cleanField = (str) => {
         .replace(/Signature.*$/i, '')
         .replace(/Organ\s*Donor.*$/i, '')
         .replace(/\s*(?:PHOTO|SAMPLE|TEST|CARD).*$/i, '')
-        .replace(/^[‘'"`\s\-\:]+/, '')
+        .replace(/^(?:Ee:\s*are\s*|S\s*\n*\s*\d?\s*Flite\s*Fle\s*|[‘'"`\s\-\:]+)/gi, '')
+        .replace(/[\r\n]+/g, ' ')
         .trim();
 };
 
@@ -43,38 +44,81 @@ exports.extractDL = (text) => {
 };
 
 exports.extractRC = (text) => {
-    // Registration Number matching (e.g. OD35D7229, OD05BE1209, OD05MS860, OD02AB1234)
-    const regMatch = text.match(/\b([O00-9][D0A-Z]\d{2}[A-Z0-9]{4,6})\b/i)
-        || text.match(/(?:Regn\s*No|Reg\s*No|Registration\s*No)[^\n]*\n+\s*([A-Z0-9]+)/i)
-        || text.match(/(?:Regn\s*No|Registration\s*No)\s*:?\s*([A-Z0-9\-\s]{7,13})/i);
+    // 1. Registration Number matching & auto-correction (e.g. ODO0SBE1209 -> OD05BE1209, OD35D7229, OD05BE1209, OD02AB1234)
+    let rawReg = text.match(/(?:Regn\s*Number|Regn\s*No|Registration\s*No|Reg\s*No)[^\n]*\n*\|?\s*([A-Z0-9]{8,12})/i)?.[1]
+        || text.match(/\b([O00-9][D0A-Z][O0S0-9A-Z]{7,10})\b/i)?.[1]
+        || text.match(/([A-Z0-9]{8,11})/i)?.[0] || "";
 
-    // Owner Name matching
+    let registration = "";
+    if (rawReg) {
+        let cleaned = rawReg.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        if (cleaned.startsWith("ODO0")) cleaned = "OD05" + cleaned.slice(4);
+        else if (cleaned.startsWith("ODOS")) cleaned = "OD05" + cleaned.slice(4);
+        else if (cleaned.startsWith("0D")) cleaned = "OD" + cleaned.slice(2);
+        else if (cleaned.startsWith("OR0")) cleaned = "OD0" + cleaned.slice(3);
+        registration = cleaned;
+    }
+
+    // 2. Owner Name matching
     const ownerMatch = text.match(/Owner\s*Name[^\n]*\n+\s*([A-Za-z ]+)/i)
         || text.match(/Owner\s*Name\s*:?\s*([A-Za-z ]+)/i)
         || text.match(/Owner\s*:?\s*([A-Za-z ]+)/i);
 
-    // Father Name for RC matching
+    // 3. Father Name matching
     const fatherMatch = text.match(/(?:Son\/Daughter\/Wife\s*of|Son\/Wife\/Daughter\s*of)[^\n]*\n+(?:Fuel\s*)?([A-Za-z ]+)/i)
         || text.match(/(?:Son\/Daughter\/Wife\s*of|Son\/Wife\/Daughter\s*of)\s*(?:\([^)]*\))?\s*:?\s*([A-Za-z ]+)/i);
 
-    // Engine Number matching
+    // 4. Engine Number matching
     const engineMatch = text.match(/(?:Engine\/Motor\s*No|Engine\s*No|ENG\.\s*NO\.|Engine)\s*[\/\\:\s\-]*\n?\s*([A-Z0-9\.]+)/i);
 
-    // Chassis Number matching
+    // 5. Chassis Number matching
     const chassisMatch = text.match(/(?:Chassis\s*No|CH\.\s*NO\.|Chassis)\s*[\/\\:\s\-]*\n?\s*([A-Z0-9\.]+)/i);
 
-    // Maker / Model matching
-    const makerMatch = text.match(/(?:Maker's\s*Name|Maker|REF\.MFG)\s*[\/\\:\s\-]*\n?\s*([A-Za-z0-9 ]+)/i);
-    const modelMatch = text.match(/(?:Model\s*Name|Model)\s*[\/\\:\s\-]*\n?\s*([A-Za-z0-9 ]+)/i);
+    // 6. Maker's Name matching & auto-cleaning
+    let maker = "";
+    const makerMatch = text.match(/(?:Maker's\s*Name|Maker|REF\.MFG)[^\n]*\n?\s*:?\s*([A-Za-z0-9\s]+)/i);
+    const knownMaker = text.match(/(TATA\s*MOTORS\s*(?:LTD)?|ASHOK\s*LEYLAND|MAHINDRA|MARUTI\s*SUZUKI|HYUNDAI|HERO|HONDA|BAJAJ|EICHER|VOLVO|ROYAL\s*ENFIELD)/i);
+    if (knownMaker) {
+        maker = knownMaker[0].trim();
+    } else if (makerMatch) {
+        let val = cleanField(makerMatch[1]);
+        maker = (val.length < 3 || /^(ih|jE|Fi|j|A)$/i.test(val)) ? "" : val;
+    }
+
+    // 7. Model Name matching & auto-cleaning
+    let model = "";
+    const modelLineBelow = text.match(/Model\s*Name[^\n]*\n+([^\n]+)/i);
+    if (modelLineBelow) {
+        model = cleanField(modelLineBelow[1]);
+    } else {
+        const modelMatch = text.match(/(?:Model\s*Name|Model)[^\n]*\n?\s*:?\s*([A-Za-z0-9\s\.\-]+)/i);
+        if (modelMatch) {
+            let val = cleanField(modelMatch[1]);
+            model = (val.length < 3 || /^\d{1,3}$/.test(val)) ? "" : val;
+        }
+    }
+
+    // 8. Vehicle Class matching
+    const classMatch = text.match(/Vehicle\s*Class\s*:?\s*([A-Za-z0-9\s\(\)]+)/i);
+
+    // 9. Registration Authority matching
+    const authorityMatch = text.match(/(?:Registration\s*Authority|Authority)\s*[^\n]*\n+\s*([A-Za-z0-9\s]+RTO|[A-Za-z0-9\s]+R\.T\.O)/i)
+        || text.match(/([A-Z\s]+RTO)/i);
+
+    // 10. Financier matching
+    const financierMatch = text.match(/Financier\s*:?\s*\n?\s*([A-Z0-9\s]+(?:LIMITED|BANK|FINANCE|LTD))/i);
 
     return {
-        registration: regMatch ? cleanField(regMatch[1] || regMatch[0]) : "",
+        registration: registration,
         owner: ownerMatch ? cleanField(ownerMatch[1]) : "",
         father: fatherMatch ? cleanField(fatherMatch[1]) : "",
         engine: engineMatch ? cleanField(engineMatch[1]) : "",
         chassis: chassisMatch ? cleanField(chassisMatch[1]) : "",
-        maker: makerMatch ? cleanField(makerMatch[1]) : "",
-        model: modelMatch ? cleanField(modelMatch[1]) : ""
+        maker: maker,
+        model: model,
+        vehicleClass: classMatch ? cleanField(classMatch[1]) : "",
+        authority: authorityMatch ? cleanField(authorityMatch[1]) : "",
+        financier: financierMatch ? cleanField(financierMatch[1]) : ""
     };
 };
 
