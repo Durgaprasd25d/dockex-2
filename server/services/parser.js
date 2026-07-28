@@ -49,21 +49,23 @@ exports.extractRC = (text) => {
         || text.match(/(?:Regn\s*No|Registration\s*No)\s*:?\s*([A-Z0-9\-\s]{7,13})/i);
 
     // Owner Name matching
-    const ownerMatch = text.match(/Owner\s*Name\s*(?:\n|[A-Z\s])*\s*:?\s*([A-Za-z ]+)/i)
+    const ownerMatch = text.match(/Owner\s*Name[^\n]*\n+\s*([A-Za-z ]+)/i)
+        || text.match(/Owner\s*Name\s*:?\s*([A-Za-z ]+)/i)
         || text.match(/Owner\s*:?\s*([A-Za-z ]+)/i);
 
     // Father Name for RC matching
-    const fatherMatch = text.match(/(?:Son\/Daughter\/Wife\s*of|Son\/Wife\/Daughter\s*of)\s*(?:\([^)]*\))?\s*:?\s*([A-Za-z ]+)/i);
+    const fatherMatch = text.match(/(?:Son\/Daughter\/Wife\s*of|Son\/Wife\/Daughter\s*of)[^\n]*\n+(?:Fuel\s*)?([A-Za-z ]+)/i)
+        || text.match(/(?:Son\/Daughter\/Wife\s*of|Son\/Wife\/Daughter\s*of)\s*(?:\([^)]*\))?\s*:?\s*([A-Za-z ]+)/i);
 
     // Engine Number matching
-    const engineMatch = text.match(/(?:Engine\/Motor\s*No|Engine\s*No|ENG\.\s*NO\.|Engine)\s*:?\s*([A-Z0-9\.]+)/i);
+    const engineMatch = text.match(/(?:Engine\/Motor\s*No|Engine\s*No|ENG\.\s*NO\.|Engine)\s*[\/\\:\s\-]*\n?\s*([A-Z0-9\.]+)/i);
 
     // Chassis Number matching
-    const chassisMatch = text.match(/(?:Chassis\s*No|CH\.\s*NO\.|Chassis)\s*:?\s*([A-Z0-9\.]+)/i);
+    const chassisMatch = text.match(/(?:Chassis\s*No|CH\.\s*NO\.|Chassis)\s*[\/\\:\s\-]*\n?\s*([A-Z0-9\.]+)/i);
 
     // Maker / Model matching
-    const makerMatch = text.match(/(?:Maker's\s*Name|Maker|REF\.MFG)\s*:?\s*([A-Za-z0-9 ]+)/i);
-    const modelMatch = text.match(/(?:Model\s*Name|Model)\s*:?\s*([A-Za-z0-9 ]+)/i);
+    const makerMatch = text.match(/(?:Maker's\s*Name|Maker|REF\.MFG)\s*[\/\\:\s\-]*\n?\s*([A-Za-z0-9 ]+)/i);
+    const modelMatch = text.match(/(?:Model\s*Name|Model)\s*[\/\\:\s\-]*\n?\s*([A-Za-z0-9 ]+)/i);
 
     return {
         registration: regMatch ? cleanField(regMatch[1] || regMatch[0]) : "",
