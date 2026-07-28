@@ -23,12 +23,12 @@ exports.upload = async (req, res) => {
             data = parser.extractPAN(text);
         } else {
             // Auto detect
-            if (/Licence|Son\/Daughter\/Wife|Blood Group|DL No/i.test(text)) {
-                docType = "DL";
-                data = parser.extractDL(text);
-            } else if (/Engine|Chassis|Owner Name|Registration/i.test(text)) {
+            if (/Vehicle\s*Registration|Regn\s*No|Chassis|Engine|Owner\s*Name/i.test(text)) {
                 docType = "RC";
                 data = parser.extractRC(text);
+            } else if (/Licence|DRIVING|Validity|DL\s*No|Son\/Daughter\/Wife\s*of/i.test(text)) {
+                docType = "DL";
+                data = parser.extractDL(text);
             } else if (/PERMANENT ACCOUNT|INCOME TAX|[A-Z]{5}[0-9]{4}[A-Z]{1}/i.test(text)) {
                 docType = "PAN";
                 data = parser.extractPAN(text);
