@@ -6,10 +6,10 @@ const cleanField = (str) => {
         .replace(/Signature.*$/i, '')
         .replace(/Organ\s*Donor.*$/i, '')
         .replace(/\s*(?:PHOTO|SAMPLE|TEST|CARD).*$/i, '')
-        .replace(/^(?:Ee:\s*are\s*|S\s*\n*\s*\d?\s*Flite\s*Fle\s*|[‘'"`\s\-\:\]\[\\\/i\|\#\=\>]+)/gi, '')
+        .replace(/^(?:Ee:\s*are\s*|S\s*\n*\s*\d?\s*Flite\s*Fle\s*|[‘'"`\s\-\:\]\[\\\/\|\#\=\>]+)/gi, '')
         .replace(/[\r\n]+/g, ' ')
         .replace(/\s+(?:El|NR|DIESEL|Address|Fuel|\d+).*$/i, '') // Remove trailing noise
-        .replace(/^(?:i|j|a|A)\s+/, '') // Remove leading noise letters
+        .replace(/^(?:j|a)\s+/, '') // Remove leading noise letters
         .trim();
 };
 
@@ -215,7 +215,7 @@ exports.extractRC = (text) => {
 exports.extractAadhaar = (text) => {
     const numMatch = text.match(/\b\d{4}\s\d{4}\s\d{4}\b/) || text.match(/\b\d{12}\b/);
     
-    // Name matching (matches "Name:", line above "DOB", line below "Government of India", or "To:")
+    // Name matching
     const nameMatch = text.match(/Name\s*:?\s*([A-Za-z ]+)/i)
         || text.match(/(?:To|C\/O|S\/O|D\/O|W\/O)\s*:?\s*([A-Za-z ]+)/i)
         || text.match(/\n([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\n\s*(?:DOB|Date|Year|\d{2}[\/\-])/i)
@@ -226,7 +226,7 @@ exports.extractAadhaar = (text) => {
     const genderMatch = text.match(/(Male|Female|Transgender)/i);
 
     let cleanName = nameMatch ? cleanField(nameMatch[1]) : "";
-    if (cleanName.includes("Government") || cleanName.includes("Identification") || cleanName.includes("Authority") || cleanName.includes("India")) {
+    if (/Government|Identification|Authority|India/i.test(cleanName)) {
         cleanName = "";
     }
 
@@ -246,15 +246,12 @@ exports.extractPAN = (text) => {
     let father = "";
     let dob = "";
 
-    // 1. Try explicit label matches
     const nameMatch = text.match(/Name\s*:?\s*([A-Za-z ]+)/i);
     const fatherMatch = text.match(/(?:Father's\s*Name|Father\s*Name)\s*:?\s*([A-Za-z ]+)/i);
     
     if (nameMatch) name = cleanField(nameMatch[1]);
     if (fatherMatch) father = cleanField(fatherMatch[1]);
 
-    // 2. Line-based extraction for standard PAN card layout:
-    // [PAN NUMBER] -> Line 1: Name -> Line 2: Father Name -> Line 3: DOB
     const panIndex = lines.findIndex(l => /[A-Z]{5}[0-9]{4}[A-Z]{1}/.test(l));
     if (panIndex !== -1) {
         if (!name && lines[panIndex + 1] && !/Father|Date|DOB|INCOME|GOVT|CARD/i.test(lines[panIndex + 1])) {
@@ -267,7 +264,6 @@ exports.extractPAN = (text) => {
         }
     }
 
-    // Filter out label words from name & father
     name = name.replace(/(?:Father|Date|DOB|Birth|INCOME|GOVT|CARD).*$/i, '').trim();
     father = father.replace(/(?:Father|Date|DOB|Birth|INCOME|GOVT|CARD).*$/i, '').trim();
 
