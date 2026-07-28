@@ -1,4 +1,3 @@
-const ocrService = require("../services/ocrService");
 const parser = require("../services/parser");
 
 exports.uploadDocument = async (req, res) => {
@@ -6,15 +5,16 @@ exports.uploadDocument = async (req, res) => {
         let text = req.body ? req.body.text : "";
         let docType = (req.body ? req.body.type : "").toUpperCase();
 
-        // If text was not provided directly by client browser OCR, execute server OCR
+        // Dynamically load ocrService ONLY if text is not provided by client
         if (!text && req.file) {
             try {
+                const ocrService = require("../services/ocrService");
                 text = await ocrService.readText(req.file.buffer || req.file.path);
             } catch (ocrErr) {
                 console.error("Server OCR error:", ocrErr.message);
                 return res.status(400).json({
                     success: false,
-                    message: "Server OCR failed or timed out. Please try uploading again.",
+                    message: "Server-side OCR unavailable. Using client-side OCR.",
                     error: ocrErr.message
                 });
             }
