@@ -13,7 +13,14 @@ const LABEL_MAP = {
     blood: "Blood Group",
     engine: "Engine Number",
     chassis: "Chassis Number",
-    gender: "Gender"
+    gender: "Gender",
+    issueDate: "Issue Date",
+    validityNt: "Validity (NT)",
+    validityTr: "Validity (TR)",
+    issuingAuthority: "Issuing Authority",
+    registrationDate: "Registration Date",
+    registrationValidity: "Registration Validity",
+    fitnessValidity: "Fitness Validity"
 };
 
 function ResultCard({ data, text, docType }) {
