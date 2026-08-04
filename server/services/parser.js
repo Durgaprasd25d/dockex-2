@@ -105,12 +105,16 @@ exports.extractDL = (text) => {
     }
 
     // Try matching the standard validity table header
-    const dlHeaderMatch = text.match(/(?:Issue\s*Date|Validity\s*\(?NT\)?|Validity\s*\(?TR\)?)[^\n]*\n+[^\d]*(\d{2}[-\/\.]\d{2}[-\/\.]\d{4}|\d{2}[-\/\.][A-Za-z]{3}[-\/\.]\d{4})\s+(\d{2}[-\/\.]\d{2}[-\/\.]\d{4}|\d{2}[-\/\.][A-Za-z]{3}[-\/\.]\d{4})(?:\s+(\d{2}[-\/\.]\d{2}[-\/\.]\d{4}|\d{2}[-\/\.][A-Za-z]{3}[-\/\.]\d{4}))?/i);
-    if (dlHeaderMatch) {
-        issueDate = dlHeaderMatch[1];
-        validityNt = dlHeaderMatch[2];
-        if (dlHeaderMatch[3]) {
-            validityTr = dlHeaderMatch[3];
+    const lines = text.split(/\r?\n/);
+    const headerIdx = lines.findIndex(l => /(?:Issue\s*Date|Validity\s*\(?NT\)?|Validity\s*\(?TR\)?)/i.test(l));
+    if (headerIdx !== -1 && lines[headerIdx + 1]) {
+        const dataLine = lines[headerIdx + 1];
+        // Match any date-like token: DD.MM.YYYY, DD-MM-YYYY, DDMM-YYYY, YYYY-YYYY, DDMMYYYY
+        const lineDates = dataLine.match(/\b(\d{2}[\.\/\-]\d{2}[\.\/\-]\d{4}|\d{2}[\.\/\-]\d{2}\d{4}|\d{4}[-]\d{4}|\d{8}|\d{4}[\.\/\-]\d{2}[\.\/\-]\d{2})\b/g);
+        if (lineDates) {
+            issueDate = lineDates[0] || "";
+            validityNt = lineDates[1] || "";
+            validityTr = lineDates[2] || "";
         }
     }
 
