@@ -365,13 +365,16 @@ exports.extractRC = (text) => {
         }
     }
 
-    const fitMatch = text.match(/(?:Fitness\s*Valid\s*Upto|Fitness\s*Valid\s*Till|Fitness\s*Validity|Fitness\s*Expiry|Fitness)\s*[:\-\s]*\s*(\d{2}[-\/\.][A-Za-z0-9]{3,4}[-\/\.]\d{4}|\d{2}[-\/\.]\d{2}[-\/\.]\d{4})/i);
+    const fitMatch = text.match(/(?:Fitness\s*Valid\s*Upto|Fitness\s*Valid\s*Till|Fitness\s*Validity|Fitness\s*Expiry|Fitness|Fit|it)\s*[:\-\s]*\s*(\d{2}[-\/\.][A-Za-z0-9]{3,4}[-\/\.]\d{4}|\d{2}[-\/\.]\d{2}[-\/\.]\d{4}|\d{2}[-\/\.]\d{4})/i);
     if (fitMatch) {
         fitnessValidity = fitMatch[1];
     }
 
-    if (registrationValidity.toLowerCase() === "as per fitness" && fitnessValidity) {
-        registrationValidity = `As per Fitness (${fitnessValidity})`;
+    if (fitnessValidity) {
+        const cleanFit = cleanDate(fitnessValidity);
+        if (!registrationValidity || registrationValidity.toLowerCase() === "as per fitness") {
+            registrationValidity = `As per Fitness (${cleanFit})`;
+        }
     }
 
     return {
