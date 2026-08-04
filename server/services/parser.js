@@ -8,7 +8,7 @@ const cleanField = (str) => {
         .replace(/\s*(?:PHOTO|SAMPLE|TEST|CARD).*$/i, '')
         .replace(/^(?:Ee:\s*are\s*|S\s*\n*\s*\d?\s*Flite\s*Fle\s*|[‘'"`\s\-\:\]\[\\\/\|\#\=\>]+)/gi, '')
         .replace(/[\r\n]+/g, ' ')
-        .replace(/\s+(?:El|NR|DIESEL|Address|Fuel|\d+).*$/i, '') // Remove trailing noise
+        .replace(/\s+(?:El|NR|DIESEL|Address|Fuel).*$/i, '') // Remove trailing noise
         .replace(/^(?:j|a|i)\s+/, '') // Remove leading noise letters (j, a, i)
         .trim();
 
@@ -271,9 +271,9 @@ exports.extractRC = (text) => {
 
     // 7. Model Name matching
     let model = "";
-    const knownModel = text.match(/(TATA\s*LPT\s*[\d\w\s]+|TATA\s*SIGNA\s*[\d\w\s]+)/i);
+    const knownModel = text.match(/(TATA\s*LPT\s*[A-Z0-9\s\-]{3,30}|TATA\s*SIGNA\s*[A-Z0-9\s\-]{3,30})/i);
     if (knownModel) {
-        model = knownModel[0].trim();
+        model = cleanField(knownModel[0]);
     } else {
         const modelLineBelow = text.match(/Model\s*Name[^\n]*\n+([^\n]+)/i)
             || text.match(/Model\s*:[^\n]*\n+([^\n]+)/i);
@@ -290,24 +290,47 @@ exports.extractRC = (text) => {
 
     // 8. Vehicle Class matching
     const classMatch = text.match(/Vehicle\s*Class\s*:?\s*([A-Za-z0-9\s\(\)]+)/i);
+    let vehicleClass = classMatch ? cleanField(classMatch[1]) : "";
+    if (vehicleClass) {
+        vehicleClass = vehicleClass.replace(/\s+\d+$/, '').trim();
+    }
 
     // 9. Registration Authority matching
     let authority = "";
     const authorityMatch = text.match(/(?:Registration\s*Authority|Authonty|Authority)\s*[^\n]*\n+\s*([A-Za-z0-9\s]+RTO|[A-Za-z0-9\s]+R\.T\.O)/i)
-        || text.match(/\b([A-Za-z\s]+RTO)\b/i);
+        || text.match(/\b([A-Za-z0-9\s]+RTO)\b/i);
     if (authorityMatch) {
-        authority = cleanField(authorityMatch[1]);
-        if (authority.toLowerCase().includes("cylinders")) {
-            const rtoIdx = authority.toLowerCase().indexOf("rto");
-            if (rtoIdx !== -1) {
-                const parts = authority.substring(0, rtoIdx + 3).trim().split(/\s+/);
-                authority = parts.slice(-2).join(' ');
-            }
+        const rawAuth = cleanField(authorityMatch[1]);
+        // Extract the valid RTO name (last two words including RTO)
+        const rtoMatch = rawAuth.match(/\b([A-Z0-9\s\-]+RTO)\b/i);
+        if (rtoMatch) {
+            const parts = rtoMatch[1].trim().split(/\s+/);
+            authority = parts.slice(-2).join(' ');
+        } else {
+            authority = rawAuth;
         }
     }
 
     // 10. Financier matching
-    const financierMatch = text.match(/Financier\s*:?\s*\n?\s*([A-Z0-9\s]+(?:LIMITED|BANK|FINANCE|LTD))/i);
+    let financier = "";
+    const linesList = text.split(/\r?\n/);
+    const finHeaderIdx = linesList.findIndex(l => /Financier/i.test(l));
+    if (finHeaderIdx !== -1) {
+        // Scan the next 4 lines to allow for empty lines or double carriage returns
+        for (let i = finHeaderIdx + 1; i <= Math.min(finHeaderIdx + 4, linesList.length - 1); i++) {
+            const finMatch = linesList[i].match(/\b([A-Z0-9\s\-]+(?:LIMITED|BANK|FINANCE|LTD|COOP|SERVICES))\b/i);
+            if (finMatch) {
+                financier = cleanField(finMatch[1]);
+                break;
+            }
+        }
+    }
+    if (!financier) {
+        const financierMatch = text.match(/Financier\s*:?\s*\n?\s*([A-Z0-9\s]+(?:LIMITED|BANK|FINANCE|LTD))/i);
+        if (financierMatch) {
+            financier = cleanField(financierMatch[1]);
+        }
+    }
 
     // 11. RC Dates & Validity matching
     let registrationDate = "";
@@ -329,7 +352,17 @@ exports.extractRC = (text) => {
 
     if (!registrationDate) {
         const regDateMatch = text.match(/(?:Date\s*of\s*Regn|Regn\s*Date|Registration\s*Date|Reg\s*Date)\s*[:\-\s]*\s*(\d{2}[-\/\.][A-Za-z0-9]{3,4}[-\/\.]\d{4}|\d{2}[-\/\.]\d{2}[-\/\.]\d{4}|\d{2}[-\/\.]\d{2})/i);
-        if (regDateMatch) registrationDate = regDateMatch[1];
+        if (regDateMatch) {
+            registrationDate = regDateMatch[1];
+        }
+    }
+
+    // Fallback: search for any MM-YYYY date as registration date if empty
+    if (!registrationDate) {
+        const mmYyyyMatch = text.match(/\b(\d{2}[-\/\.]\d{4})\b/);
+        if (mmYyyyMatch) {
+            registrationDate = mmYyyyMatch[1];
+        }
     }
 
     const fitMatch = text.match(/(?:Fitness\s*Valid\s*Upto|Fitness\s*Valid\s*Till|Fitness\s*Validity|Fitness\s*Expiry|Fitness)\s*[:\-\s]*\s*(\d{2}[-\/\.][A-Za-z0-9]{3,4}[-\/\.]\d{4}|\d{2}[-\/\.]\d{2}[-\/\.]\d{4})/i);
@@ -349,9 +382,9 @@ exports.extractRC = (text) => {
         chassis: chassis,
         maker: maker,
         model: model,
-        vehicleClass: classMatch ? cleanField(classMatch[1]) : "",
+        vehicleClass: vehicleClass,
         authority: authority,
-        financier: financierMatch ? cleanField(financierMatch[1]) : "",
+        financier: financier,
         registrationDate: cleanDate(registrationDate),
         registrationValidity: cleanDate(registrationValidity),
         fitnessValidity: cleanDate(fitnessValidity)
