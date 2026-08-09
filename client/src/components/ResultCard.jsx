@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { FiCheckCircle, FiCopy, FiCheck, FiCode, FiChevronDown, FiChevronUp, FiTerminal } from "react-icons/fi";
+import { FiCheckCircle, FiCopy, FiCheck, FiCode, FiChevronDown, FiChevronUp, FiTerminal, FiTruck } from "react-icons/fi";
+import RegisterDriverForm from "./RegisterDriverForm";
 
 const LABEL_MAP = {
     dlNumber: "Driving Licence Number",
@@ -28,6 +29,7 @@ function ResultCard({ data, text, docType }) {
     const [copiedJson, setCopiedJson] = useState(false);
     const [showRawText, setShowRawText] = useState(false);
     const [formData, setFormData] = useState({});
+    const [showRegisterForm, setShowRegisterForm] = useState(false);
 
     if (!data) return null;
 
@@ -116,24 +118,38 @@ function ResultCard({ data, text, docType }) {
                 </div>
 
                 <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4 pt-3 border-top border-secondary border-opacity-25">
-                    <button
-                        type="button"
-                        className="btn btn-sm btn-outline-light d-flex align-items-center gap-2"
-                        onClick={handleCopyAll}
-                        style={{ borderRadius: '8px', fontSize: '13px', padding: '6px 14px' }}
-                    >
-                        {copiedJson ? (
-                            <>
-                                <FiCheck className="text-success" />
-                                <span>Copied JSON</span>
-                            </>
-                        ) : (
-                            <>
-                                <FiCode />
-                                <span>Copy All JSON</span>
-                            </>
+                    <div className="d-flex align-items-center gap-2">
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-outline-light d-flex align-items-center gap-2"
+                            onClick={handleCopyAll}
+                            style={{ borderRadius: '8px', fontSize: '13px', padding: '6px 14px' }}
+                        >
+                            {copiedJson ? (
+                                <>
+                                    <FiCheck className="text-success" />
+                                    <span>Copied JSON</span>
+                                </>
+                            ) : (
+                                <>
+                                    <FiCode />
+                                    <span>Copy All JSON</span>
+                                </>
+                            )}
+                        </button>
+
+                        {docType === "Driving Licence" && (
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-primary d-flex align-items-center gap-2"
+                                onClick={() => setShowRegisterForm(true)}
+                                style={{ borderRadius: '8px', fontSize: '13px', padding: '6px 14px' }}
+                            >
+                                <FiTruck style={{ fontSize: '14px' }} />
+                                <span>Register Driver in TMS</span>
+                            </button>
                         )}
-                    </button>
+                    </div>
 
                     {text && (
                         <button
@@ -170,6 +186,12 @@ function ResultCard({ data, text, docType }) {
                     </div>
                 )}
             </div>
+            {showRegisterForm && (
+                <RegisterDriverForm
+                    data={{ ...data, ...formData }}
+                    onClose={() => setShowRegisterForm(false)}
+                />
+            )}
         </div>
     );
 }
