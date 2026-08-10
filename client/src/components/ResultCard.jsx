@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FiCheckCircle, FiCopy, FiCheck, FiCode, FiChevronDown, FiChevronUp, FiTerminal, FiTruck } from "react-icons/fi";
 import RegisterDriverForm from "./RegisterDriverForm";
+import RegisterVehicleForm from "./RegisterVehicleForm";
 
 const LABEL_MAP = {
     dlNumber: "Driving Licence Number",
@@ -30,6 +31,7 @@ function ResultCard({ data, text, docType }) {
     const [showRawText, setShowRawText] = useState(false);
     const [formData, setFormData] = useState({});
     const [showRegisterForm, setShowRegisterForm] = useState(false);
+    const [showVehicleForm, setShowVehicleForm] = useState(false);
 
     if (!data) return null;
 
@@ -149,6 +151,18 @@ function ResultCard({ data, text, docType }) {
                                 <span>Register Driver in TMS</span>
                             </button>
                         )}
+
+                        {docType === "Vehicle RC" && (
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-primary d-flex align-items-center gap-2"
+                                onClick={() => setShowVehicleForm(true)}
+                                style={{ borderRadius: '8px', fontSize: '13px', padding: '6px 14px' }}
+                            >
+                                <FiTruck style={{ fontSize: '14px' }} />
+                                <span>Register Vehicle in TMS</span>
+                            </button>
+                        )}
                     </div>
 
                     {text && (
@@ -190,6 +204,12 @@ function ResultCard({ data, text, docType }) {
                 <RegisterDriverForm
                     data={{ ...data, ...formData }}
                     onClose={() => setShowRegisterForm(false)}
+                />
+            )}
+            {showVehicleForm && (
+                <RegisterVehicleForm
+                    data={{ ...data, ...formData }}
+                    onClose={() => setShowVehicleForm(false)}
                 />
             )}
         </div>

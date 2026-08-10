@@ -1,3 +1,6 @@
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first");
+
 const fs = require("fs");
 const path = require("path");
 
@@ -28,6 +31,8 @@ const cors = require("cors");
 
 const uploadRoute = require("./routes/upload");
 const driversRoute = require("./routes/drivers");
+const vehiclesRoute = require("./routes/vehicles");
+const authRoute = require("./routes/auth");
 
 const app = express();
 
@@ -63,6 +68,8 @@ app.get("/health", (req, res) => {
 
 app.use("/api", uploadRoute);
 app.use("/api/drivers", driversRoute);
+app.use("/api/vehicles", vehiclesRoute);
+app.use("/api/auth", authRoute);
 
 // Catch-all 404 Handler
 app.use((req, res) => {

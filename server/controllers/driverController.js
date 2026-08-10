@@ -32,12 +32,20 @@ const registerDriver = async (req, res) => {
             });
         }
 
-        const token = process.env.TMS_BEARER_TOKEN;
+        // Retrieve token from Authorization header or fallback to process.env
+        let token = "";
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+        } else {
+            token = process.env.TMS_BEARER_TOKEN;
+        }
+
         if (!token) {
-            console.error("TMS_BEARER_TOKEN environment variable is not defined");
-            return res.status(500).json({
+            console.error("No authorization token provided or found in environment");
+            return res.status(401).json({
                 success: false,
-                message: "Server configuration error: TMS_BEARER_TOKEN is not defined in backend .env."
+                message: "Authentication required. Please log in first."
             });
         }
 
