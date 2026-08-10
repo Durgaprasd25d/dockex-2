@@ -35,6 +35,10 @@ API.interceptors.response.use((response) => {
     return response;
 }, (error) => {
     if (error.response && error.response.status === 401) {
+        // Skip redirect if this is the login request itself
+        if (error.config && error.config.url && (error.config.url.endsWith("/auth/login") || error.config.url.includes("/authentication"))) {
+            return Promise.reject(error);
+        }
         console.warn("Session expired or unauthorized. Clearing token and redirecting...");
         localStorage.removeItem("tms_token");
         localStorage.removeItem("tms_user");

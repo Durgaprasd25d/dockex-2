@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { FiX, FiCheckCircle, FiAlertTriangle, FiUser, FiPhone, FiTruck, FiMapPin, FiCalendar, FiSettings } from "react-icons/fi";
 import API from "../services/api";
+import axios from "axios";
 
 function RegisterVehicleForm({ data, onClose }) {
     const [loading, setLoading] = useState(false);
@@ -137,33 +138,84 @@ function RegisterVehicleForm({ data, onClose }) {
         setLoading(true);
 
         try {
-            // Build the payload
-            const payload = {
-                ...formData,
-                number_of_wheels: parseInt(formData.number_of_wheels) || 10,
-                weight_capacity: formData.weight_capacity ? parseFloat(formData.weight_capacity) : undefined,
-                cubic_capacity: formData.cubic_capacity ? parseFloat(formData.cubic_capacity) : undefined,
-                gross_weight: formData.gross_weight ? parseFloat(formData.gross_weight) : undefined,
-                unladen_weight: formData.unladen_weight ? parseFloat(formData.unladen_weight) : undefined,
-                passing_weight: formData.passing_weight ? parseFloat(formData.passing_weight) : undefined,
-                location: JSON.stringify({
-                    latitude: parseFloat(formData.latitude) || 20.3493551,
-                    longitude: parseFloat(formData.longitude) || 85.8077988
-                })
+            const token = localStorage.getItem("tms_token");
+            if (!token) {
+                setErrorMsg("You are not authenticated. Please log in.");
+                return;
+            }
+
+            const convertToISODate = (dateStr) => {
+                if (!dateStr) return "";
+                const cleanStr = dateStr.trim();
+                if (cleanStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    return cleanStr;
+                }
+                const dmyMatch = cleanStr.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+                if (dmyMatch) {
+                    const [_, day, month, year] = dmyMatch;
+                    return `${year}-${month}-${day}`;
+                }
+                try {
+                    const d = new Date(cleanStr);
+                    if (!isNaN(d.getTime())) {
+                        return d.toISOString().split('T')[0];
+                    }
+                } catch (e) {}
+                return cleanStr;
             };
 
-            const response = await API.post("/vehicles", payload);
+            const bodyFormData = new FormData();
+            Object.keys(formData).forEach(key => {
+                let value = formData[key];
+                if (value !== undefined && value !== null && value !== "") {
+                    if (["manufacturing_date", "ownership_start_date", "fitness_valid_till", "registration_date_from", "registration_date_to"].includes(key)) {
+                        value = convertToISODate(value);
+                    }
+                    bodyFormData.append(key, value);
+                }
+            });
 
-            if (response.data && response.data.success) {
+            // Adjust numerical parameters
+            bodyFormData.set("number_of_wheels", (parseInt(formData.number_of_wheels) || 10).toString());
+            if (formData.weight_capacity) bodyFormData.set("weight_capacity", parseFloat(formData.weight_capacity).toString());
+            if (formData.cubic_capacity) bodyFormData.set("cubic_capacity", parseFloat(formData.cubic_capacity).toString());
+            if (formData.gross_weight) bodyFormData.set("gross_weight", parseFloat(formData.gross_weight).toString());
+            if (formData.unladen_weight) bodyFormData.set("unladen_weight", parseFloat(formData.unladen_weight).toString());
+            if (formData.passing_weight) bodyFormData.set("passing_weight", parseFloat(formData.passing_weight).toString());
+
+            // Override location with serialized JSON object
+            bodyFormData.set("location", JSON.stringify({
+                latitude: parseFloat(formData.latitude) || 20.3493551,
+                longitude: parseFloat(formData.longitude) || 85.8077988
+            }));
+
+            // Direct Axios POST to external TMS API
+            const response = await axios.post("https://tms.traanslogsinnovation.com/api/vehicles", bodyFormData, {
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Accept": "application/json, text/plain, */*"
+                    // Content-Type header is intentionally left blank so browser configures boundary stream automatically
+                }
+            });
+
+            if (response.status === 200 || response.status === 201) {
                 setSuccessMsg("Vehicle registered successfully in the TMS system!");
             } else {
-                setErrorMsg("Vehicle registration failed: " + (response.data.message || "Unknown error"));
+                setErrorMsg("Vehicle registration failed: " + (response.data?.message || "Unknown error"));
             }
         } catch (err) {
             console.error("Registration request failed:", err);
-            const apiError = err.response?.data?.error?.message 
-                || err.response?.data?.message 
-                || "Failed to connect to local API. Please verify your backend server is running.";
+            if (err.response && err.response.status === 401) {
+                console.warn("Dynamic token expired. Triggering page reload...");
+                localStorage.removeItem("tms_token");
+                localStorage.removeItem("tms_user");
+                localStorage.removeItem("tms_org_id");
+                window.location.reload();
+                return;
+            }
+            const apiError = err.response?.data?.message 
+                || err.response?.data?.error?.message 
+                || "Failed to connect to TMS server. Please check credentials and connection.";
             setErrorMsg(apiError);
         } finally {
             setLoading(false);

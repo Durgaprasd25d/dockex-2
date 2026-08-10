@@ -1,11 +1,22 @@
 import { useState, useEffect } from "react";
-import { FiPhone, FiLock, FiBriefcase, FiMapPin, FiAlertTriangle, FiCheckCircle } from "react-icons/fi";
-import API from "../services/api";
+import { FiPhone, FiLock, FiBriefcase, FiMapPin, FiAlertTriangle, FiCheckCircle, FiCalendar } from "react-icons/fi";
+import axios from "axios";
 
 function Login({ onLoginSuccess }) {
-    const [mobileNumber, setMobileNumber] = useState("");
-    const [password, setPassword] = useState("");
-    const [organizationId, setOrganizationId] = useState("");
+    const [mobileNumber, setMobileNumber] = useState("9658947277"); // Prefilled from screenshot
+    const [password, setPassword] = useState("Garg@1234"); // Prefilled from screenshot
+    const [organizationId, setOrganizationId] = useState("6895b6269bb6e4001c31dfc4"); // Prefilled Garg Logistics
+    const [financialYear, setFinancialYear] = useState("2026-2027");
+    const [organizations, setOrganizations] = useState([
+        {
+            _id: "6895b6269bb6e4001c31dfc4",
+            name: "GARG LOGISTICS (A UNIT OF GARG BEVERAGES PVT. LTD.)"
+        },
+        {
+            _id: "68778009daf263001cf8167f",
+            name: "TransLogsInnovation Pvt. Ltd."
+        }
+    ]);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
@@ -14,8 +25,9 @@ function Login({ onLoginSuccess }) {
     const [latitude, setLatitude] = useState("");
     const [longitude, setLongitude] = useState("");
 
-    // Auto-fetch location on mount
+    // Auto-fetch location and organizations on mount
     useEffect(() => {
+        // Geolocation
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -32,6 +44,25 @@ function Login({ onLoginSuccess }) {
             setLatitude("20.349393");
             setLongitude("85.8078099");
         }
+
+        // Fetch organizations list from public endpoint
+        const fetchOrganizations = async () => {
+            try {
+                const response = await axios.get("https://tms.traanslogsinnovation.com/api/organization");
+                if (response.data && response.data.data) {
+                    setOrganizations(response.data.data);
+                    // Match organization ID from list or default to Garg Logistics ID
+                    const match = response.data.data.find(org => org.name.toLowerCase().includes("garg"));
+                    if (match) {
+                        setOrganizationId(match._id);
+                    }
+                }
+            } catch (err) {
+                console.warn("Failed to fetch organizations list from TMS, using fallback defaults:", err.message);
+            }
+        };
+
+        fetchOrganizations();
     }, []);
 
     const handleSubmit = async (e) => {
@@ -48,44 +79,51 @@ function Login({ onLoginSuccess }) {
             return;
         }
         if (!organizationId.trim()) {
-            setErrorMsg("Company Organization ID is required.");
+            setErrorMsg("Please select your company name.");
             return;
         }
 
         setLoading(true);
 
         try {
-            const response = await API.post("/auth/login", {
+            const response = await axios.post("https://tms.traanslogsinnovation.com/authentication", {
                 mobileNumber: mobileNumber.trim(),
                 password: password,
+                strategy: "local",
                 organizationId: organizationId.trim(),
                 location: {
                     latitude: parseFloat(latitude) || 20.349393,
                     longitude: parseFloat(longitude) || 85.8078099
                 }
+            }, {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json, text/plain, */*"
+                }
             });
 
-            if (response.data && response.data.success) {
+            if (response.data && response.data.accessToken) {
                 setSuccessMsg("Logged in successfully!");
-                const authData = response.data.data;
+                const authData = response.data;
                 
                 // Store session details in localStorage
-                localStorage.setItem("tms_token", authData.accessToken || authData.token || "");
+                localStorage.setItem("tms_token", authData.accessToken || "");
                 localStorage.setItem("tms_user", JSON.stringify(authData.user || { name: "TMS User" }));
                 localStorage.setItem("tms_org_id", organizationId.trim());
+                localStorage.setItem("tms_fin_year", financialYear);
 
                 // Trigger UI reload or context update
                 setTimeout(() => {
                     if (onLoginSuccess) onLoginSuccess();
                 }, 800);
             } else {
-                setErrorMsg(response.data.message || "Authentication failed.");
+                setErrorMsg("Authentication failed: No access token received.");
             }
         } catch (err) {
             console.error("Login request failed:", err);
             const apiError = err.response?.data?.message 
                 || err.response?.data?.error?.message 
-                || "Failed to authenticate. Verify credentials and backend server connection.";
+                || "Failed to authenticate. Please verify credentials.";
             setErrorMsg(apiError);
         } finally {
             setLoading(false);
@@ -132,6 +170,45 @@ function Login({ onLoginSuccess }) {
                     </div>
 
                     <div className="login-field-group">
+                        <label className="login-field-label">Company Name</label>
+                        <div className="login-field-wrapper">
+                            <FiBriefcase className="login-field-icon" />
+                            <select
+                                className="login-field-input"
+                                style={{ paddingRight: "28px", appearance: "auto" }}
+                                value={organizationId}
+                                onChange={(e) => setOrganizationId(e.target.value)}
+                                required
+                            >
+                                <option value="">Select Company Name</option>
+                                {organizations.map((org) => (
+                                    <option key={org._id} value={org._id}>
+                                        {org.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="login-field-group">
+                        <label className="login-field-label">Financial Year</label>
+                        <div className="login-field-wrapper">
+                            <FiCalendar className="login-field-icon" />
+                            <select
+                                className="login-field-input"
+                                style={{ appearance: "auto" }}
+                                value={financialYear}
+                                onChange={(e) => setFinancialYear(e.target.value)}
+                                required
+                            >
+                                <option value="2026-2027">2026-2027</option>
+                                <option value="2025-2026">2025-2026</option>
+                                <option value="2024-2025">2024-2025</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="login-field-group">
                         <label className="login-field-label">Password</label>
                         <div className="login-field-wrapper">
                             <FiLock className="login-field-icon" />
@@ -146,24 +223,9 @@ function Login({ onLoginSuccess }) {
                         </div>
                     </div>
 
-                    <div className="login-field-group">
-                        <label className="login-field-label">Company Organization ID</label>
-                        <div className="login-field-wrapper">
-                            <FiBriefcase className="login-field-icon" />
-                            <input
-                                type="text"
-                                className="login-field-input"
-                                value={organizationId}
-                                onChange={(e) => setOrganizationId(e.target.value)}
-                                placeholder="Enter organization ID"
-                                required
-                            />
-                        </div>
-                    </div>
-
                     <div className="login-location-badge d-flex align-items-center gap-1 mb-4">
                         <FiMapPin className="text-primary" />
-                        <span>GPS Location Detected: {latitude ? `${parseFloat(latitude).toFixed(4)}, ${parseFloat(longitude).toFixed(4)}` : "Detecting..."}</span>
+                        <span>GPS Location: {latitude ? `${parseFloat(latitude).toFixed(4)}, ${parseFloat(longitude).toFixed(4)}` : "Detecting..."}</span>
                     </div>
 
                     <button type="submit" className="login-submit-btn" disabled={loading}>
@@ -173,7 +235,7 @@ function Login({ onLoginSuccess }) {
                                 <span>Signing you in...</span>
                             </>
                         ) : (
-                            <span>Login to Portal</span>
+                            <span>Login</span>
                         )}
                     </button>
                 </form>
