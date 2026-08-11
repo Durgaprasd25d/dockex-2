@@ -62,6 +62,27 @@ const loginUser = async (req, res) => {
     }
 };
 
+const tmsAuth = require("../services/tmsAuth");
+
+const getTmsToken = async (req, res) => {
+    try {
+        const token = await tmsAuth.getValidToken();
+        return res.json({
+            success: true,
+            token,
+            organizationId: process.env.TMS_OFFICE_ORG_ID || "6895b6269bb6e4001c31dfc4"
+        });
+    } catch (error) {
+        console.error("Error retrieving auto-login token:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve auto-login token from TMS server.",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
-    loginUser
+    loginUser,
+    getTmsToken
 };

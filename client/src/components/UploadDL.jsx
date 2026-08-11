@@ -4,6 +4,7 @@ import API from "../services/api";
 import ResultCard from "./ResultCard";
 import { compressImage } from "../utils/compressImage";
 import { processImageOCR } from "../services/clientOcr";
+import { ensureTmsAuthenticated } from "../services/tmsAuth";
 
 function UploadDL() {
     const [file, setFile] = useState(null);
@@ -75,6 +76,8 @@ function UploadDL() {
             if (res.data && res.data.data) {
                 setResult(res.data.data);
                 if (res.data.text) setRawText(res.data.text);
+                // Background fetch of TMS token
+                ensureTmsAuthenticated();
             } else {
                 setErrorMsg("Could not extract data from document");
             }
