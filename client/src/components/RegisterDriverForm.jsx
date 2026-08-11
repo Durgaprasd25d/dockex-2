@@ -97,12 +97,6 @@ function RegisterDriverForm({ data, onClose }) {
         setLoading(true);
 
         try {
-            const token = localStorage.getItem("tms_token");
-            if (!token) {
-                setErrorMsg("You are not authenticated. Please log in.");
-                return;
-            }
-
             const convertToISODate = (dateStr) => {
                 if (!dateStr) return "";
                 const cleanStr = dateStr.trim();
@@ -123,50 +117,35 @@ function RegisterDriverForm({ data, onClose }) {
                 return cleanStr;
             };
 
-            const bodyFormData = new FormData();
-            Object.keys(formData).forEach(key => {
-                let value = formData[key];
-                if (value !== undefined && value !== null) {
-                    if (["dob", "transport_valid_form", "transport_valid_upto", "valid_form", "valid_upto"].includes(key)) {
-                        value = convertToISODate(value);
-                    }
-                    bodyFormData.append(key, value);
+            // Build the payload
+            const payload = {
+                ...formData,
+                location: {
+                    latitude: parseFloat(formData.latitude) || 20.3493603,
+                    longitude: parseFloat(formData.longitude) || 85.8078294
+                }
+            };
+
+            // Convert date fields to ISO YYYY-MM-DD
+            ["dob", "transport_valid_form", "transport_valid_upto", "valid_form", "valid_upto"].forEach(key => {
+                if (payload[key]) {
+                    payload[key] = convertToISODate(payload[key]);
                 }
             });
 
-            // Override location with serialized JSON object
-            bodyFormData.set("location", JSON.stringify({
-                latitude: parseFloat(formData.latitude) || 20.3493603,
-                longitude: parseFloat(formData.longitude) || 85.8078294
-            }));
+            // Local API POST request
+            const response = await API.post("/drivers", payload);
 
-            // Direct Axios POST to external TMS API
-            const response = await axios.post("https://tms.traanslogsinnovation.com/api/drivers", bodyFormData, {
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Accept": "application/json, text/plain, */*"
-                    // Content-Type header is intentionally left blank so browser configures boundary stream automatically
-                }
-            });
-
-            if (response.status === 200 || response.status === 201) {
+            if (response.data && response.data.success) {
                 setSuccessMsg("Driver registered successfully in the TMS system!");
             } else {
-                setErrorMsg("Driver registration failed: " + (response.data?.message || "Unknown error"));
+                setErrorMsg("Driver registration failed: " + (response.data.message || "Unknown error"));
             }
         } catch (err) {
             console.error("Registration request failed:", err);
-            if (err.response && err.response.status === 401) {
-                console.warn("Dynamic token expired. Triggering page reload...");
-                localStorage.removeItem("tms_token");
-                localStorage.removeItem("tms_user");
-                localStorage.removeItem("tms_org_id");
-                window.location.reload();
-                return;
-            }
             const apiError = err.response?.data?.message 
                 || err.response?.data?.error?.message 
-                || "Failed to connect to TMS server. Please check credentials and connection.";
+                || "Failed to register driver. Please check your network and credentials.";
             setErrorMsg(apiError);
         } finally {
             setLoading(false);

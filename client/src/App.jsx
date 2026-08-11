@@ -5,54 +5,15 @@ import UploadDL from "./components/UploadDL";
 import UploadRC from "./components/UploadRC";
 import UploadAadhaar from "./components/UploadAadhaar";
 import UploadPAN from "./components/UploadPAN";
-import Login from "./components/Login";
 
 function App() {
-    const [token, setToken] = useState(localStorage.getItem("tms_token"));
     const [activeTab, setActiveTab] = useState("all");
-
-    const handleLoginSuccess = () => {
-        setToken(localStorage.getItem("tms_token"));
-    };
-
-    const handleLogout = () => {
-        localStorage.removeItem("tms_token");
-        localStorage.removeItem("tms_user");
-        localStorage.removeItem("tms_org_id");
-        setToken(null);
-    };
-
-    if (!token) {
-        return <Login onLoginSuccess={handleLoginSuccess} />;
-    }
 
     return (
         <div className="min-vh-100 pb-5">
             <Navbar />
 
             <div className="container mt-4">
-                {/* User Session Bar */}
-                <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2 pb-3 border-bottom border-secondary border-opacity-10">
-                    <div className="text-muted" style={{ fontSize: "13px" }}>
-                        <span>Logged in as: </span>
-                        <strong className="text-white">
-                            {JSON.parse(localStorage.getItem("tms_user") || "{}").name || "TMS User"}
-                        </strong>
-                        <span className="mx-2">|</span>
-                        <span>Org ID: </span>
-                        <strong className="text-white">
-                            {localStorage.getItem("tms_org_id") || "N/A"}
-                        </strong>
-                    </div>
-                    <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        style={{ borderRadius: "8px", fontSize: "12px", padding: "4px 12px" }}
-                        onClick={handleLogout}
-                    >
-                        Sign Out
-                    </button>
-                </div>
 
                 {/* Document Type Selector Bar */}
                 <div className="doc-type-pills">

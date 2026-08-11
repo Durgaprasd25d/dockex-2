@@ -138,12 +138,6 @@ function RegisterVehicleForm({ data, onClose }) {
         setLoading(true);
 
         try {
-            const token = localStorage.getItem("tms_token");
-            if (!token) {
-                setErrorMsg("You are not authenticated. Please log in.");
-                return;
-            }
-
             const convertToISODate = (dateStr) => {
                 if (!dateStr) return "";
                 const cleanStr = dateStr.trim();
@@ -164,58 +158,41 @@ function RegisterVehicleForm({ data, onClose }) {
                 return cleanStr;
             };
 
-            const bodyFormData = new FormData();
-            Object.keys(formData).forEach(key => {
-                let value = formData[key];
-                if (value !== undefined && value !== null && value !== "") {
-                    if (["manufacturing_date", "ownership_start_date", "fitness_valid_till", "registration_date_from", "registration_date_to"].includes(key)) {
-                        value = convertToISODate(value);
-                    }
-                    bodyFormData.append(key, value);
+            // Build the payload
+            const payload = {
+                ...formData,
+                number_of_wheels: parseInt(formData.number_of_wheels) || 10,
+                weight_capacity: formData.weight_capacity ? parseFloat(formData.weight_capacity) : undefined,
+                cubic_capacity: formData.cubic_capacity ? parseFloat(formData.cubic_capacity) : undefined,
+                gross_weight: formData.gross_weight ? parseFloat(formData.gross_weight) : undefined,
+                unladen_weight: formData.unladen_weight ? parseFloat(formData.unladen_weight) : undefined,
+                passing_weight: formData.passing_weight ? parseFloat(formData.passing_weight) : undefined,
+                location: {
+                    latitude: parseFloat(formData.latitude) || 20.3493551,
+                    longitude: parseFloat(formData.longitude) || 85.8077988
+                }
+            };
+
+            // Convert date fields to ISO YYYY-MM-DD
+            ["manufacturing_date", "ownership_start_date", "fitness_valid_till", "registration_date_from", "registration_date_to"].forEach(key => {
+                if (payload[key]) {
+                    payload[key] = convertToISODate(payload[key]);
                 }
             });
 
-            // Adjust numerical parameters
-            bodyFormData.set("number_of_wheels", (parseInt(formData.number_of_wheels) || 10).toString());
-            if (formData.weight_capacity) bodyFormData.set("weight_capacity", parseFloat(formData.weight_capacity).toString());
-            if (formData.cubic_capacity) bodyFormData.set("cubic_capacity", parseFloat(formData.cubic_capacity).toString());
-            if (formData.gross_weight) bodyFormData.set("gross_weight", parseFloat(formData.gross_weight).toString());
-            if (formData.unladen_weight) bodyFormData.set("unladen_weight", parseFloat(formData.unladen_weight).toString());
-            if (formData.passing_weight) bodyFormData.set("passing_weight", parseFloat(formData.passing_weight).toString());
+            // Local API POST request
+            const response = await API.post("/vehicles", payload);
 
-            // Override location with serialized JSON object
-            bodyFormData.set("location", JSON.stringify({
-                latitude: parseFloat(formData.latitude) || 20.3493551,
-                longitude: parseFloat(formData.longitude) || 85.8077988
-            }));
-
-            // Direct Axios POST to external TMS API
-            const response = await axios.post("https://tms.traanslogsinnovation.com/api/vehicles", bodyFormData, {
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Accept": "application/json, text/plain, */*"
-                    // Content-Type header is intentionally left blank so browser configures boundary stream automatically
-                }
-            });
-
-            if (response.status === 200 || response.status === 201) {
+            if (response.data && response.data.success) {
                 setSuccessMsg("Vehicle registered successfully in the TMS system!");
             } else {
-                setErrorMsg("Vehicle registration failed: " + (response.data?.message || "Unknown error"));
+                setErrorMsg("Vehicle registration failed: " + (response.data.message || "Unknown error"));
             }
         } catch (err) {
             console.error("Registration request failed:", err);
-            if (err.response && err.response.status === 401) {
-                console.warn("Dynamic token expired. Triggering page reload...");
-                localStorage.removeItem("tms_token");
-                localStorage.removeItem("tms_user");
-                localStorage.removeItem("tms_org_id");
-                window.location.reload();
-                return;
-            }
             const apiError = err.response?.data?.message 
                 || err.response?.data?.error?.message 
-                || "Failed to connect to TMS server. Please check credentials and connection.";
+                || "Failed to register vehicle. Please check your network and credentials.";
             setErrorMsg(apiError);
         } finally {
             setLoading(false);

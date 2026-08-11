@@ -1,3 +1,5 @@
+const tmsAuth = require("../services/tmsAuth");
+
 const registerDriver = async (req, res) => {
     try {
         const {
@@ -32,20 +34,14 @@ const registerDriver = async (req, res) => {
             });
         }
 
-        // Retrieve token from Authorization header or fallback to process.env
+        // Retrieve token automatically via Token Manager service
         let token = "";
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
-        } else {
-            token = process.env.TMS_BEARER_TOKEN;
-        }
-
-        if (!token) {
-            console.error("No authorization token provided or found in environment");
-            return res.status(401).json({
+        try {
+            token = await tmsAuth.getValidToken();
+        } catch (authErr) {
+            return res.status(500).json({
                 success: false,
-                message: "Authentication required. Please log in first."
+                message: "Authentication with TMS failed: " + authErr.message
             });
         }
 
