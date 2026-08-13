@@ -377,6 +377,90 @@ exports.extractRC = (text) => {
         }
     }
 
+    // 12. NEW DETAILED FIELDS FOR RC SCAN
+
+    // Fuel Type
+    const fuelMatch = text.match(/(?:Fuel\s*Type|Fuel)\s*[:\-\|\s]*\s*(DIESEL|PETROL|CNG|LPG|EV|ELECTRIC)/i);
+    const fuelType = fuelMatch ? fuelMatch[1].trim().toLowerCase() : "diesel";
+
+    // Vehicle Color
+    const colorMatch = text.match(/(?:Colo[ur]+|Color)\s*[:\-\|\s]*\s*([A-Za-z]+)/i);
+    const color = colorMatch ? cleanField(colorMatch[1]) : "";
+
+    // Cubic Capacity (cc)
+    const ccMatch = text.match(/(?:Cubic\s*Cap(?:acity)?|C\.C\.|CC)\s*[:\-\|\s]*\s*(\d+)/i);
+    const cubicCapacity = ccMatch ? ccMatch[1].trim() : "";
+
+    // Unladen Weight
+    const unladenMatch = text.match(/(?:Unladen\s*Wt|Unladen\s*Weight|U\.L\.\s*Wt|UL\s*Wt)\s*[:\-\|\s]*\s*(\d+)/i);
+    const unladenWeight = unladenMatch ? unladenMatch[1].trim() : "";
+
+    // Gross Vehicle Weight
+    const grossMatch = text.match(/(?:Gross\s*Wt|Gross\s*Weight|G\.V\.W|GVW)\s*[:\-\|\s]*\s*(\d+)/i);
+    const grossWeight = grossMatch ? grossMatch[1].trim() : "";
+
+    // Manufacturing Date
+    const mfgMatch = text.match(/(?:Mfg\s*Date|MFG\s*DT|MFG|Month\/Yr|Mfg\s*Yr|Mfg\s*Year)\s*[:\-\|\s]*\s*(\d{2}[-\/\.]\d{4}|\d{4})/i);
+    let manufacturingDate = "";
+    if (mfgMatch) {
+        const rawMfg = mfgMatch[1].trim();
+        if (rawMfg.length === 4) {
+            manufacturingDate = `01-01-${rawMfg}`;
+        } else {
+            const parts = rawMfg.split(/[-\/\.]/);
+            if (parts.length === 2) {
+                manufacturingDate = `01-${parts[0]}-${parts[1]}`;
+            } else {
+                manufacturingDate = rawMfg.replace(/[\/\.]/g, '-');
+            }
+        }
+    }
+
+    // Owner Address
+    let address = "";
+    const addressMatch = text.match(/(?:Address|Add)\s*[:\-\|\s]*\s*([\s\S]+?)(?=(?:Pin|RTO|Authority|Engine|Chassis|Date|Validity|Fitness|GVW|Unladen|$))/i);
+    if (addressMatch) {
+        address = addressMatch[1].replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    // Pin Code
+    const pinMatch = text.match(/\b(\d{6})\b/);
+    const pinCode = pinMatch ? pinMatch[1] : "";
+
+    // State & District
+    const statesList = ["Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"];
+    let state = "";
+    for (const s of statesList) {
+        if (new RegExp(s, "i").test(text)) {
+            state = s;
+            break;
+        }
+    }
+    if (!state && regMatch) {
+        const prefix = regMatch.slice(0, 2).toUpperCase();
+        const stateMap = {
+            "OD": "Odisha", "OR": "Odisha", "DL": "Delhi", "MH": "Maharashtra", "KA": "Karnataka",
+            "TN": "Tamil Nadu", "AP": "Andhra Pradesh", "TS": "Telangana", "WB": "West Bengal",
+            "UP": "Uttar Pradesh", "GJ": "Gujarat", "HR": "Haryana", "PB": "Punjab", "MP": "Madhya Pradesh"
+        };
+        state = stateMap[prefix] || "";
+    }
+
+    // Try to infer district from RTO authority
+    let district = "";
+    if (authority) {
+        district = authority.replace(/RTO|R\.T\.O/gi, '').trim();
+    }
+
+    // Infer Area from RTO/Address
+    let area = "";
+    if (address) {
+        const addressWords = address.split(",");
+        if (addressWords.length > 1) {
+            area = addressWords[addressWords.length - 2].trim();
+        }
+    }
+
     return {
         registration: registration,
         owner: owner,
@@ -390,7 +474,18 @@ exports.extractRC = (text) => {
         financier: financier,
         registrationDate: cleanDate(registrationDate),
         registrationValidity: cleanDate(registrationValidity),
-        fitnessValidity: cleanDate(fitnessValidity)
+        fitnessValidity: cleanDate(fitnessValidity),
+        fuelType,
+        color,
+        cubicCapacity,
+        unladenWeight,
+        grossWeight,
+        manufacturingDate,
+        address,
+        pinCode,
+        state,
+        district,
+        area
     };
 };
 
