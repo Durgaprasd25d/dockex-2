@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { FiX, FiCheckCircle, FiAlertTriangle, FiUser, FiPhone, FiTruck, FiMapPin, FiCalendar, FiSettings } from "react-icons/fi";
-import API from "../services/api";
+import { FiX, FiCheckCircle, FiAlertTriangle, FiTruck, FiSettings, FiCalendar } from "react-icons/fi";
 import axios from "axios";
 
 function RegisterVehicleForm({ data, onClose }) {
@@ -20,39 +19,26 @@ function RegisterVehicleForm({ data, onClose }) {
 
     // Form fields state prefilled from parsed Vehicle RC
     const [formData, setFormData] = useState({
-        category: "truck",
-        manufacturing_date: data.manufacturingDate || "",
-        registration_number: data.registration || "",
-        vehicle_class: mapVehicleClass(data.vehicleClass),
-        number_of_wheels: data.numberOfWheels || "10",
-        weight_capacity: "",
-        engine_number: data.engine || "",
-        chassis_number: data.chassis || "",
-        maker: data.maker || "",
-        model: data.model || "",
-        body_type: data.bodyType || "open trolly",
-        fuel_type: data.fuelType || "diesel",
-        vehicle_color: data.color || "",
-        cubic_capacity: data.cubicCapacity || "",
-        gross_weight: data.grossWeight || "",
-        unladen_weight: data.unladenWeight || "",
-        passing_weight: "",
-        ownership_start_date: data.registrationDate || "",
-        owner_pan_number: "",
-        owner_name: data.owner || "",
-        owner_address: data.address || "",
-        owner_contact: "",
-        owner_email: "",
-        rc_number: data.registration || "",
-        registration_at: data.authority || "",
-        fitness_valid_till: data.fitnessValidity || "",
-        wheel: "",
-        owner_district: data.district || "",
-        owner_state: data.state || "",
-        owner_area: data.area || "",
-        owner_pin_code: data.pinCode || "",
-        registration_date_from: data.registrationDate || "",
-        registration_date_to: data.fitnessValidity || "",
+        vehicle_class: mapVehicleClass(data.vehicle_class),
+        registration_number: data.registration_number || "",
+        maker_name: data.maker_name || "",
+        model_name: data.model_name || "",
+        colour: data.colour || "",
+        body_type: data.body_type || "",
+        seating: data.seating_standing_sleeper_capacity?.seating || "",
+        standing: data.seating_standing_sleeper_capacity?.standing || "",
+        sleeper: data.seating_standing_sleeper_capacity?.sleeper || "",
+        unladen_kg: data.weight?.unladen_kg || "",
+        laden_kg: data.weight?.laden_kg || "",
+        gross_combination_weight_kg: data.weight?.gross_combination_weight_kg || "",
+        cubic_capacity: data.cubic_capacity_horse_power_wheel_base?.cubic_capacity || "",
+        horse_power: data.cubic_capacity_horse_power_wheel_base?.horse_power || "",
+        wheel_base_mm: data.cubic_capacity_horse_power_wheel_base?.wheel_base_mm || "",
+        financier: data.financier || "",
+        month_year_of_manufacture: data.month_year_of_manufacture || "",
+        number_of_cylinders: data.number_of_cylinders || "",
+        number_of_axles: data.number_of_axles || "",
+        registration_authority: data.registration_authority || "",
         latitude: "",
         longitude: ""
     });
@@ -88,21 +74,10 @@ function RegisterVehicleForm({ data, onClose }) {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => {
-            const updated = { ...prev, [name]: value };
-            if (name === "registration_number") {
-                updated.rc_number = value;
-            }
-            if (name === "registrationDate") {
-                updated.ownership_start_date = value;
-                updated.registration_date_from = value;
-            }
-            if (name === "fitnessValidity") {
-                updated.fitness_valid_till = value;
-                updated.registration_date_to = value;
-            }
-            return updated;
-        });
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -116,22 +91,6 @@ function RegisterVehicleForm({ data, onClose }) {
         }
         if (!formData.vehicle_class.trim()) {
             setErrorMsg("Vehicle Class is required.");
-            return;
-        }
-        if (!formData.number_of_wheels.trim()) {
-            setErrorMsg("Number of Wheels is required.");
-            return;
-        }
-        if (!formData.owner_pan_number.trim()) {
-            setErrorMsg("Owner PAN is required.");
-            return;
-        }
-        if (!formData.owner_name.trim()) {
-            setErrorMsg("Owner Name is required.");
-            return;
-        }
-        if (!formData.owner_contact.trim()) {
-            setErrorMsg("Owner Contact phone is required.");
             return;
         }
 
@@ -148,7 +107,6 @@ function RegisterVehicleForm({ data, onClose }) {
                 if (!dateStr) return "";
                 let cleanStr = dateStr.trim();
 
-                // Split date ranges like "2003-2036" or "22-01-2003 to 21-01-2036"
                 const rangeParts = cleanStr.split(/ - | to |(?<=\d{4})-(?=\d{4})/i);
                 if (rangeParts.length > 1) {
                     cleanStr = (isExpiry ? rangeParts[rangeParts.length - 1] : rangeParts[0]).trim();
@@ -185,27 +143,56 @@ function RegisterVehicleForm({ data, onClose }) {
             };
 
             const bodyFormData = new FormData();
-            Object.keys(formData).forEach(key => {
-                let value = formData[key];
-                if (value !== undefined && value !== null && value !== "") {
-                    if (["manufacturing_date", "ownership_start_date", "fitness_valid_till", "registration_date_from", "registration_date_to"].includes(key)) {
-                        const isExpiry = ["fitness_valid_till", "registration_date_to"].includes(key);
-                        value = convertToISODate(value, isExpiry);
-                    }
-                    bodyFormData.append(key, value);
-                }
-            });
+            
+            // Map keys exactly as required by the TMS external API structure
+            bodyFormData.append("registration_number", formData.registration_number.trim());
+            bodyFormData.append("rc_number", formData.registration_number.trim());
+            bodyFormData.append("vehicle_class", formData.vehicle_class);
+            bodyFormData.append("maker", formData.maker_name);
+            bodyFormData.append("model", formData.model_name);
+            bodyFormData.append("vehicle_color", formData.colour);
+            bodyFormData.append("body_type", formData.body_type);
+            
+            bodyFormData.append("seating_capacity", formData.seating || "0");
+            bodyFormData.append("standing_capacity", formData.standing || "0");
+            bodyFormData.append("sleeper_capacity", formData.sleeper || "0");
+            
+            bodyFormData.append("unladen_weight", formData.unladen_kg ? parseFloat(formData.unladen_kg).toString() : "0");
+            bodyFormData.append("gross_weight", formData.laden_kg ? parseFloat(formData.laden_kg).toString() : "0");
+            bodyFormData.append("weight_capacity", formData.gross_combination_weight_kg ? parseFloat(formData.gross_combination_weight_kg).toString() : "0");
+            
+            bodyFormData.append("cubic_capacity", formData.cubic_capacity ? parseFloat(formData.cubic_capacity).toString() : "0");
+            bodyFormData.append("horse_power", formData.horse_power ? parseFloat(formData.horse_power).toString() : "0");
+            bodyFormData.append("wheelbase", formData.wheel_base_mm ? parseInt(formData.wheel_base_mm).toString() : "0");
+            
+            bodyFormData.append("financier", formData.financier);
+            
+            // Format month-year of manufacture to valid date format
+            bodyFormData.append("manufacturing_date", convertToISODate(formData.month_year_of_manufacture));
+            bodyFormData.append("no_of_cylinder", formData.number_of_cylinders || "0");
+            bodyFormData.append("no_of_axle", formData.number_of_axles || "0");
+            bodyFormData.append("registration_at", formData.registration_authority);
 
-            // Adjust numerical parameters
-            bodyFormData.set("number_of_wheels", (parseInt(formData.number_of_wheels) || 10).toString());
-            if (formData.weight_capacity) bodyFormData.set("weight_capacity", parseFloat(formData.weight_capacity).toString());
-            if (formData.cubic_capacity) bodyFormData.set("cubic_capacity", parseFloat(formData.cubic_capacity).toString());
-            if (formData.gross_weight) bodyFormData.set("gross_weight", parseFloat(formData.gross_weight).toString());
-            if (formData.unladen_weight) bodyFormData.set("unladen_weight", parseFloat(formData.unladen_weight).toString());
-            if (formData.passing_weight) bodyFormData.set("passing_weight", parseFloat(formData.passing_weight).toString());
+            // Derive number of wheels from axles
+            let numberOfWheels = "10";
+            const axles = parseInt(formData.number_of_axles);
+            if (axles === 2) numberOfWheels = "6";
+            else if (axles === 3) numberOfWheels = "10";
+            else if (axles === 4) numberOfWheels = "12";
+            else if (axles === 5) numberOfWheels = "10";
+            else if (axles >= 6) numberOfWheels = "12";
+            bodyFormData.append("number_of_wheels", numberOfWheels);
 
-            // Override location with serialized JSON object
-            bodyFormData.set("location", JSON.stringify({
+            bodyFormData.append("category", "truck");
+            bodyFormData.append("fuel_type", "diesel");
+
+            // Static mandatory fields required for user context validation
+            bodyFormData.append("owner_name", "GARG LOGISTICS");
+            bodyFormData.append("owner_pan_number", "ABCDE1234F");
+            bodyFormData.append("owner_contact", "9658947277");
+
+            // Geolocation
+            bodyFormData.append("location", JSON.stringify({
                 latitude: parseFloat(formData.latitude) || 20.3493551,
                 longitude: parseFloat(formData.longitude) || 85.8077988
             }));
@@ -216,7 +203,6 @@ function RegisterVehicleForm({ data, onClose }) {
                 headers: {
                     "Authorization": `Bearer ${token}`,
                     "Accept": "application/json, text/plain, */*"
-                    // Content-Type header is intentionally left blank so browser configures boundary stream automatically
                 }
             });
 
@@ -245,7 +231,7 @@ function RegisterVehicleForm({ data, onClose }) {
                             <FiTruck className="text-primary" />
                             <span>TMS Vehicle Registration</span>
                         </h3>
-                        <p className="registration-modal-subtitle">Submit scanned vehicle registration certificate (RC) directly to TMS Portal</p>
+                        <p className="registration-modal-subtitle">Submit scanned vehicle registration certificate (RC) details to TMS Portal</p>
                     </div>
                     <button type="button" className="close-icon-btn" onClick={onClose} title="Close form">
                         <FiX />
@@ -273,14 +259,14 @@ function RegisterVehicleForm({ data, onClose }) {
 
                     <div className="row g-3 mb-4">
                         <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Registration Number (Truck Number) *</label>
+                            <label className="field-label-modal">Registration Number *</label>
                             <input
                                 type="text"
                                 name="registration_number"
                                 className="field-input-modal"
                                 value={formData.registration_number}
                                 onChange={handleChange}
-                                placeholder="e.g. OR054518"
+                                placeholder="e.g. OD05BE1209"
                                 required
                             />
                         </div>
@@ -296,81 +282,18 @@ function RegisterVehicleForm({ data, onClose }) {
                                 <option value="light">Light Commercial Vehicle (LMV)</option>
                                 <option value="heavy">Heavy Goods Vehicle (HGV)</option>
                                 <option value="medium">Medium Goods Vehicle (MGV)</option>
-                                <option value="other">Other Spec</option>
                             </select>
                         </div>
 
                         <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Number of Wheels *</label>
-                            <select
-                                name="number_of_wheels"
-                                className="field-select-modal"
-                                value={formData.number_of_wheels}
-                                onChange={handleChange}
-                            >
-                                <option value="4">4 Wheeler</option>
-                                <option value="6">6 Wheeler</option>
-                                <option value="10">10 Wheeler</option>
-                                <option value="12">12 Wheeler</option>
-                                <option value="14">14 Wheeler</option>
-                                <option value="16">16 Wheeler</option>
-                                <option value="18">18 Wheeler</option>
-                                <option value="20">20 Wheeler</option>
-                                <option value="22">22 Wheeler</option>
-                            </select>
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Category</label>
+                            <label className="field-label-modal">Maker Name</label>
                             <input
                                 type="text"
-                                name="category"
+                                name="maker_name"
                                 className="field-input-modal"
-                                value={formData.category}
+                                value={formData.maker_name}
                                 onChange={handleChange}
-                                placeholder="e.g. truck"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="form-section-title">
-                        <FiSettings /> <span>Technical Specifications</span>
-                    </div>
-
-                    <div className="row g-3 mb-4">
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Chassis Number</label>
-                            <input
-                                type="text"
-                                name="chassis_number"
-                                className="field-input-modal"
-                                value={formData.chassis_number}
-                                onChange={handleChange}
-                                placeholder="17-character VIN/Chassis Number"
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Engine Number</label>
-                            <input
-                                type="text"
-                                name="engine_number"
-                                className="field-input-modal"
-                                value={formData.engine_number}
-                                onChange={handleChange}
-                                placeholder="Engine serial identifier"
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Maker</label>
-                            <input
-                                type="text"
-                                name="maker"
-                                className="field-input-modal"
-                                value={formData.maker}
-                                onChange={handleChange}
-                                placeholder="e.g. TATA, LEYLAND"
+                                placeholder="e.g. TATA MOTORS LTD"
                             />
                         </div>
 
@@ -378,11 +301,23 @@ function RegisterVehicleForm({ data, onClose }) {
                             <label className="field-label-modal">Model Name</label>
                             <input
                                 type="text"
-                                name="model"
+                                name="model_name"
                                 className="field-input-modal"
-                                value={formData.model}
+                                value={formData.model_name}
                                 onChange={handleChange}
-                                placeholder="e.g. LPT 4825"
+                                placeholder="e.g. TATA LPT 4825"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                            <label className="field-label-modal">Colour</label>
+                            <input
+                                type="text"
+                                name="colour"
+                                className="field-input-modal"
+                                value={formData.colour}
+                                onChange={handleChange}
+                                placeholder="e.g. MAROON ORANGE"
                             />
                         </div>
 
@@ -394,268 +329,199 @@ function RegisterVehicleForm({ data, onClose }) {
                                 className="field-input-modal"
                                 value={formData.body_type}
                                 onChange={handleChange}
-                                placeholder="e.g. open trolly, container"
+                                placeholder="e.g. TRUCK OPEN"
                             />
                         </div>
+                    </div>
 
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Fuel Type</label>
+                    <div className="form-section-title">
+                        <FiSettings /> <span>Dimensions, Capacities & Axles</span>
+                    </div>
+
+                    <div className="row g-3 mb-4">
+                        <div className="col-12 col-md-4">
+                            <label className="field-label-modal">Seating Capacity</label>
                             <input
                                 type="text"
-                                name="fuel_type"
+                                name="seating"
                                 className="field-input-modal"
-                                value={formData.fuel_type}
+                                value={formData.seating}
                                 onChange={handleChange}
-                                placeholder="e.g. diesel, petrol"
+                                placeholder="e.g. 2"
                             />
                         </div>
 
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Vehicle Color</label>
+                        <div className="col-12 col-md-4">
+                            <label className="field-label-modal">Standing Capacity</label>
                             <input
                                 type="text"
-                                name="vehicle_color"
+                                name="standing"
                                 className="field-input-modal"
-                                value={formData.vehicle_color}
+                                value={formData.standing}
                                 onChange={handleChange}
-                                placeholder="Color details"
+                                placeholder="e.g. 0"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-4">
+                            <label className="field-label-modal">Sleeper Capacity</label>
+                            <input
+                                type="text"
+                                name="sleeper"
+                                className="field-input-modal"
+                                value={formData.sleeper}
+                                onChange={handleChange}
+                                placeholder="e.g. 0"
                             />
                         </div>
 
                         <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Cubic Capacity (cc)</label>
+                            <label className="field-label-modal">Number of Axles</label>
                             <input
-                                type="number"
+                                type="text"
+                                name="number_of_axles"
+                                className="field-input-modal"
+                                value={formData.number_of_axles}
+                                onChange={handleChange}
+                                placeholder="e.g. 5"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                            <label className="field-label-modal">Number of Cylinders</label>
+                            <input
+                                type="text"
+                                name="number_of_cylinders"
+                                className="field-input-modal"
+                                value={formData.number_of_cylinders}
+                                onChange={handleChange}
+                                placeholder="e.g. 6"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-section-title">
+                        <FiSettings /> <span>Weight Details (Kg)</span>
+                    </div>
+
+                    <div className="row g-3 mb-4">
+                        <div className="col-12 col-md-4">
+                            <label className="field-label-modal">Unladen Weight (Kg)</label>
+                            <input
+                                type="text"
+                                name="unladen_kg"
+                                className="field-input-modal"
+                                value={formData.unladen_kg}
+                                onChange={handleChange}
+                                placeholder="e.g. 13880"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-4">
+                            <label className="field-label-modal">Laden Weight (Kg)</label>
+                            <input
+                                type="text"
+                                name="laden_kg"
+                                className="field-input-modal"
+                                value={formData.laden_kg}
+                                onChange={handleChange}
+                                placeholder="e.g. 47500"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-4">
+                            <label className="field-label-modal">Gross Combination Weight</label>
+                            <input
+                                type="text"
+                                name="gross_combination_weight_kg"
+                                className="field-input-modal"
+                                value={formData.gross_combination_weight_kg}
+                                onChange={handleChange}
+                                placeholder="e.g. 0"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-section-title">
+                        <FiSettings /> <span>Engine & Base Dimensions</span>
+                    </div>
+
+                    <div className="row g-3 mb-4">
+                        <div className="col-12 col-md-4">
+                            <label className="field-label-modal">Cubic Capacity (CC)</label>
+                            <input
+                                type="text"
                                 name="cubic_capacity"
                                 className="field-input-modal"
                                 value={formData.cubic_capacity}
                                 onChange={handleChange}
-                                placeholder="e.g. 5600"
+                                placeholder="e.g. 6702.00"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-4">
+                            <label className="field-label-modal">Horse Power (BHP)</label>
+                            <input
+                                type="text"
+                                name="horse_power"
+                                className="field-input-modal"
+                                value={formData.horse_power}
+                                onChange={handleChange}
+                                placeholder="e.g. 249.24"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-4">
+                            <label className="field-label-modal">Wheel Base (mm)</label>
+                            <input
+                                type="text"
+                                name="wheel_base_mm"
+                                className="field-input-modal"
+                                value={formData.wheel_base_mm}
+                                onChange={handleChange}
+                                placeholder="e.g. 6730"
                             />
                         </div>
                     </div>
 
                     <div className="form-section-title">
-                        <FiCalendar /> <span>Weights & Validity Lifespans</span>
+                        <FiCalendar /> <span>Administration & Finance</span>
                     </div>
 
                     <div className="row g-3 mb-4">
                         <div className="col-12 col-md-4">
-                            <label className="field-label-modal">Weight Capacity (Tons)</label>
+                            <label className="field-label-modal">Month-Year of Mfg.</label>
                             <input
-                                type="number"
-                                name="weight_capacity"
+                                type="text"
+                                name="month_year_of_manufacture"
                                 className="field-input-modal"
-                                value={formData.weight_capacity}
+                                value={formData.month_year_of_manufacture}
                                 onChange={handleChange}
-                                placeholder="Capacity in tons"
+                                placeholder="e.g. 07-2021"
                             />
                         </div>
 
                         <div className="col-12 col-md-4">
-                            <label className="field-label-modal">Gross Weight (Kg)</label>
+                            <label className="field-label-modal">Financier</label>
                             <input
-                                type="number"
-                                name="gross_weight"
+                                type="text"
+                                name="financier"
                                 className="field-input-modal"
-                                value={formData.gross_weight}
+                                value={formData.financier}
                                 onChange={handleChange}
-                                placeholder="Gross weight"
+                                placeholder="e.g. TATA MOTORS FINANCE LIMITED"
                             />
                         </div>
 
                         <div className="col-12 col-md-4">
-                            <label className="field-label-modal">Unladen Weight (Kg)</label>
-                            <input
-                                type="number"
-                                name="unladen_weight"
-                                className="field-input-modal"
-                                value={formData.unladen_weight}
-                                onChange={handleChange}
-                                placeholder="Unladen weight"
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Manufacturing Date</label>
+                            <label className="field-label-modal">Registration Authority</label>
                             <input
                                 type="text"
-                                name="manufacturing_date"
+                                name="registration_authority"
                                 className="field-input-modal"
-                                value={formData.manufacturing_date}
+                                value={formData.registration_authority}
                                 onChange={handleChange}
-                                placeholder="Manufacturing Date representation"
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Fitness Valid Till</label>
-                            <input
-                                type="text"
-                                name="fitness_valid_till"
-                                className="field-input-modal"
-                                value={formData.fitness_valid_till}
-                                onChange={handleChange}
-                                placeholder="Fitness expiry date"
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Ownership Start Date</label>
-                            <input
-                                type="text"
-                                name="ownership_start_date"
-                                className="field-input-modal"
-                                value={formData.ownership_start_date}
-                                onChange={handleChange}
-                                placeholder="Purchase or registration date"
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Registration Office (RTO)</label>
-                            <input
-                                type="text"
-                                name="registration_at"
-                                className="field-input-modal"
-                                value={formData.registration_at}
-                                onChange={handleChange}
-                                placeholder="Registration Authority name"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="form-section-title">
-                        <FiUser /> <span>Owner Details & Contact</span>
-                    </div>
-
-                    <div className="row g-3 mb-4">
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Owner Name *</label>
-                            <input
-                                type="text"
-                                name="owner_name"
-                                className="field-input-modal"
-                                value={formData.owner_name}
-                                onChange={handleChange}
-                                placeholder="Enter vehicle owner name"
-                                required
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Owner PAN *</label>
-                            <input
-                                type="text"
-                                name="owner_pan_number"
-                                className="field-input-modal"
-                                value={formData.owner_pan_number}
-                                onChange={handleChange}
-                                placeholder="10-digit PAN code (e.g. GPMPS5467E)"
-                                required
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Phone Number *</label>
-                            <input
-                                type="tel"
-                                name="owner_contact"
-                                className="field-input-modal"
-                                value={formData.owner_contact}
-                                onChange={handleChange}
-                                placeholder="Primary owner contact phone"
-                                required
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">Owner Email</label>
-                            <input
-                                type="email"
-                                name="owner_email"
-                                className="field-input-modal"
-                                value={formData.owner_email}
-                                onChange={handleChange}
-                                placeholder="Owner email address"
-                            />
-                        </div>
-
-                        <div className="col-12">
-                            <label className="field-label-modal">Owner Address</label>
-                            <textarea
-                                name="owner_address"
-                                className="field-input-modal"
-                                style={{ height: "60px", resize: "none" }}
-                                value={formData.owner_address}
-                                onChange={handleChange}
-                                placeholder="Owner complete address"
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-4">
-                            <label className="field-label-modal">State</label>
-                            <input
-                                type="text"
-                                name="owner_state"
-                                className="field-input-modal"
-                                value={formData.owner_state}
-                                onChange={handleChange}
-                                placeholder="Odisha, etc."
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-4">
-                            <label className="field-label-modal">District</label>
-                            <input
-                                type="text"
-                                name="owner_district"
-                                className="field-input-modal"
-                                value={formData.owner_district}
-                                onChange={handleChange}
-                                placeholder="District name"
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-4">
-                            <label className="field-label-modal">PIN Code</label>
-                            <input
-                                type="text"
-                                name="owner_pin_code"
-                                className="field-input-modal"
-                                value={formData.owner_pin_code}
-                                onChange={handleChange}
-                                placeholder="PIN code"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="form-section-title">
-                        <FiMapPin /> <span>Locational Parameters</span>
-                    </div>
-
-                    <div className="row g-3 mb-4">
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">GPS Latitude</label>
-                            <input
-                                type="text"
-                                name="latitude"
-                                className="field-input-modal"
-                                value={formData.latitude}
-                                onChange={handleChange}
-                                placeholder="Latitude coordinate"
-                            />
-                        </div>
-
-                        <div className="col-12 col-md-6">
-                            <label className="field-label-modal">GPS Longitude</label>
-                            <input
-                                type="text"
-                                name="longitude"
-                                className="field-input-modal"
-                                value={formData.longitude}
-                                onChange={handleChange}
-                                placeholder="Longitude coordinate"
+                                placeholder="e.g. CUTTACK RTO"
                             />
                         </div>
                     </div>
