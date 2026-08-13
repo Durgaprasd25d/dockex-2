@@ -12,8 +12,6 @@ const cleanField = (str) => {
         .replace(/^(?:j|a|i)\s+/, '') // Remove leading noise letters (j, a, i)
         .trim();
 
-    // Specifically clean up trailing lower/mixed case words if the main name is uppercase
-    // E.g. "SANUJ DWARY oars Tn" -> "SANUJ DWARY"
     const words = cleaned.split(/\s+/);
     if (words.length > 1) {
         let endIdx = words.length;
@@ -34,7 +32,6 @@ const cleanDate = (str) => {
 };
 
 exports.extractDL = (text) => {
-    // 1. DL Number matching (OD11R20200000262, OD11R20190000621, OD02K20030042677, OD19 20160236049)
     let dlMatch = text.match(/(?:ISSUED\s*BY[^\n]*\n+)\s*([0-9O\+\-][D0A-Z\+\-][0-9A-Z\s\-\+]{11,18})/i)
         || text.match(/(?:DL\s*No|Licence\s*No|Licence|No)\s*:?\s*([0-9O][D0A-Z][0-9A-Z\s\-\+]{11,18})/i)
         || text.match(/\b([0-9O\+\-][D0A-Z\+\-]\d{2}[A-Z0-9\s\+\-]{9,15})\b/i)
@@ -47,11 +44,10 @@ exports.extractDL = (text) => {
         else if (raw.startsWith("OR")) raw = "OD" + raw.slice(2);
         else if (raw.startsWith("OD1R")) raw = "OD11R" + raw.slice(4);
         
-        if (raw.length > 16) raw = raw.slice(0, 16); // Allow up to 16 characters for Indian DL smart cards
+        if (raw.length > 16) raw = raw.slice(0, 16);
         dlNumber = raw;
     }
 
-    // 2. Name matching
     let name = "";
     const nameMatch = text.match(/Name\s*:?\s*([A-Za-z ]+)/i)
         || text.match(/\n([A-Z\s]{4,30})\n\s*(?:Date\s*Of\s*Birth|Date\s*OF\s*Beth|DOB|Of\s*Birth)/i);
@@ -62,7 +58,6 @@ exports.extractDL = (text) => {
         name = lineAboveDob ? cleanField(lineAboveDob[1]) : "";
     }
 
-    // 3. Father / Guardian Name matching
     let father = "";
     const fatherMatch = text.match(/(?:Son\/Daughter\/Wife|Son|Daughter|Wife|SonfDaughter\/Wife)\s*of\s*:?\s*([A-Za-z ]+)/i)
         || text.match(/(?:Father's\s*Name|Father\s*Name)\s*:?\s*([A-Za-z ]+)/i)
@@ -73,7 +68,6 @@ exports.extractDL = (text) => {
         father = father.replace(/^[A-Z]\s+/, '').replace(/\s+[A-Z]$/, '').trim();
     }
 
-    // 4. Date of Birth matching
     let dob = "";
     const dobHeaderMatch = text.match(/(?:Date\s*Of\s*Birth|Date\s*OF\s*Beth|Of\s*Birth|DOB)\s*:?\s*(\d{2}[-\/\.]\d{2}[-\/\.]\d{4}|\d{8})/i);
     if (dobHeaderMatch) {
@@ -88,28 +82,23 @@ exports.extractDL = (text) => {
         dob = dateWithBirthYear ? dateWithBirthYear[1].replace(/[\/\.]/g, '-') : "";
     }
 
-    // 5. Blood Group matching
     const bloodMatch = text.match(/Blood\s*Group\s*:?\s*([ABO][+-]|[ABO]B[+-])/i)
         || text.match(/Blood\s*Group\s*:?\s*([A-Z]{1,2}[+-]?)/i);
 
-    // 6. DL Dates & Validity matching (Issue Date, Validity NT, Validity TR)
     let issueDate = "";
     let validityNt = "";
     let validityTr = "";
     let issuingAuthority = "";
 
-    // Issuing Authority / State matching (e.g. ISSUED BY ODISHA or GOVERNMENT OF ODISHA)
     const authMatch = text.match(/(?:ISSUED\s*BY|GOVERNMENT\s*OF)\s*([A-Za-z\s]+)/i);
     if (authMatch) {
         issuingAuthority = authMatch[1].trim().split('\n')[0].replace(/[^A-Za-z\s]/g, '').trim();
     }
 
-    // Try matching the standard validity table header
     const lines = text.split(/\r?\n/);
     const headerIdx = lines.findIndex(l => /(?:Issue\s*Date|Validity\s*\(?NT\)?|Validity\s*\(?TR\)?)/i.test(l));
     if (headerIdx !== -1 && lines[headerIdx + 1]) {
         const dataLine = lines[headerIdx + 1];
-        // Match any date-like token: DD.MM.YYYY, DD-MM-YYYY, DDMM-YYYY, YYYY-YYYY, DDMMYYYY
         const lineDates = dataLine.match(/\b(\d{2}[\.\/\-]\d{2}[\.\/\-]\d{4}|\d{2}[\.\/\-]\d{2}\d{4}|\d{4}[-]\d{4}|\d{8}|\d{4}[\.\/\-]\d{2}[\.\/\-]\d{2})\b/g);
         if (lineDates) {
             issueDate = lineDates[0] || "";
@@ -118,7 +107,6 @@ exports.extractDL = (text) => {
         }
     }
 
-    // Individual fallback regexes for DL dates
     if (!issueDate) {
         const issueMatch = text.match(/(?:Issue\s*Date|Issued\s*Date|Date\s*of\s*Issue)\s*[:\-\s]*\s*(\d{2}[-\/\.]\d{2}[-\/\.]\d{4})/i);
         if (issueMatch) issueDate = issueMatch[1];
@@ -146,74 +134,89 @@ exports.extractDL = (text) => {
 };
 
 exports.extractRC = (text) => {
-    // 1. Registration Number matching & auto-correction (OD05BE1209, OD05MS860, OD35D7229, OD09S9609)
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+    // 1. Registration Number matching
+    let registration = "";
+    const regHeaderIdx = lines.findIndex(l => /Regn\.\s*Number|Regn\s*No|Registration\s*No|Reg\s*No/i.test(l));
+    if (regHeaderIdx !== -1 && lines[regHeaderIdx + 1]) {
+        registration = lines[regHeaderIdx + 1].trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+
     const isValidRegistration = (cleaned) => {
         const validStates = /^(AN|AP|AR|AS|BR|CH|CG|DN|DD|DL|GA|GJ|HR|HP|JK|JH|KA|KL|LD|MP|MH|MN|ML|MZ|NL|OD|OR|PB|PY|RJ|SK|TN|TS|TR|UP|UK|UA|WB|0D|OS|O0|OD0|0M|AO|IO)/i;
         return validStates.test(cleaned) && cleaned.length >= 6 && !/^(DATE|REGN|OWNER|ENGINE|CHASSIS)/i.test(cleaned);
     };
 
-    let regMatch = "";
-    const inlineMatch = text.match(/(?:Regn\s*Number|Regn\s*No|Registration\s*No|Reg\s*No)\s*[:\-\|\s]*\s*([A-Z0-9\-]{7,15})/i);
-    if (inlineMatch && isValidRegistration(inlineMatch[1].replace(/[^A-Z0-9]/gi, ''))) {
-        regMatch = inlineMatch[1];
-    }
-    
-    if (!regMatch) {
-        // Look for standard state code prefix followed by 1-2 digits, then letters, then 4 digits
-        const stdRegMatch = text.match(/\b(AN|AP|AR|AS|BR|CH|CG|DN|DD|DL|GA|GJ|HR|HP|JK|JH|KA|KL|LD|MP|MH|MN|ML|MZ|NL|OD|OR|PB|PY|RJ|SK|TN|TS|TR|UP|UK|UA|WB|0D|OS|O0|OD0|0M|AO|IO)[0-9O\s]{1,3}[A-Z0-9\s\$\-]{4,10}\b/i);
-        if (stdRegMatch && isValidRegistration(stdRegMatch[0].replace(/[^A-Z0-9]/gi, ''))) {
-            regMatch = stdRegMatch[0];
+    if (!registration || !isValidRegistration(registration)) {
+        let regMatch = "";
+        const inlineMatch = text.match(/(?:Regn\s*Number|Regn\s*No|Registration\s*No|Reg\s*No)\s*[:\-\|\s]*\s*([A-Z0-9\-]{7,15})/i);
+        if (inlineMatch && isValidRegistration(inlineMatch[1].replace(/[^A-Z0-9]/gi, ''))) {
+            regMatch = inlineMatch[1];
         }
-    }
-    
-    if (!regMatch) {
-        // Fallback to any 8-11 alphanumeric code
-        const fallbackMatch = text.match(/\b([A-Z0-9]{8,11})\b/i);
-        if (fallbackMatch && isValidRegistration(fallbackMatch[1].replace(/[^A-Z0-9]/gi, ''))) {
-            regMatch = fallbackMatch[1];
-        }
-    }
-
-    let registration = "";
-    if (regMatch) {
-        let cleaned = regMatch.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-        if (cleaned.startsWith("ODO0S")) cleaned = "OD05" + cleaned.slice(5);
-        else if (cleaned.startsWith("ODO0")) cleaned = "OD05" + cleaned.slice(4);
-        else if (cleaned.startsWith("ODOS")) cleaned = "OD05" + cleaned.slice(4);
-        else if (cleaned.startsWith("OD0O")) cleaned = "OD05" + cleaned.slice(4);
-        else if (cleaned.startsWith("0D")) cleaned = "OD" + cleaned.slice(2);
-        else if (cleaned.startsWith("OR0")) cleaned = "OD0" + cleaned.slice(3);
-        else if (cleaned.startsWith("0M")) cleaned = "OD09" + cleaned.slice(2);
-        else if (cleaned.startsWith("AOD")) cleaned = "OD" + cleaned.slice(3);
-        else if (cleaned.startsWith("IOD")) cleaned = "OD" + cleaned.slice(3);
         
-        cleaned = cleaned.replace(/(?:VALIDITY|OWNER|FITNESS|ASPERSERIAL).*$/i, '');
-        if (cleaned.length > 10) cleaned = cleaned.slice(0, 10);
-        registration = cleaned;
+        if (!regMatch) {
+            const stdRegMatch = text.match(/\b(AN|AP|AR|AS|BR|CH|CG|DN|DD|DL|GA|GJ|HR|HP|JK|JH|KA|KL|LD|MP|MH|MN|ML|MZ|NL|OD|OR|PB|PY|RJ|SK|TN|TS|TR|UP|UK|UA|WB|0D|OS|O0|OD0|0M|AO|IO)[0-9O\s]{1,3}[A-Z0-9\s\$\-]{4,10}\b/i);
+            if (stdRegMatch && isValidRegistration(stdRegMatch[0].replace(/[^A-Z0-9]/gi, ''))) {
+                regMatch = stdRegMatch[0];
+            }
+        }
+        
+        if (!regMatch) {
+            const fallbackMatch = text.match(/\b([A-Z0-9]{8,11})\b/i);
+            if (fallbackMatch && isValidRegistration(fallbackMatch[1].replace(/[^A-Z0-9]/gi, ''))) {
+                regMatch = fallbackMatch[1];
+            }
+        }
+
+        if (regMatch) {
+            let cleaned = regMatch.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+            if (cleaned.startsWith("ODO0S")) cleaned = "OD05" + cleaned.slice(5);
+            else if (cleaned.startsWith("ODO0")) cleaned = "OD05" + cleaned.slice(4);
+            else if (cleaned.startsWith("ODOS")) cleaned = "OD05" + cleaned.slice(4);
+            else if (cleaned.startsWith("OD0O")) cleaned = "OD05" + cleaned.slice(4);
+            else if (cleaned.startsWith("0D")) cleaned = "OD" + cleaned.slice(2);
+            else if (cleaned.startsWith("OR0")) cleaned = "OD0" + cleaned.slice(3);
+            else if (cleaned.startsWith("0M")) cleaned = "OD09" + cleaned.slice(2);
+            else if (cleaned.startsWith("AOD")) cleaned = "OD" + cleaned.slice(3);
+            else if (cleaned.startsWith("IOD")) cleaned = "OD" + cleaned.slice(3);
+            
+            cleaned = cleaned.replace(/(?:VALIDITY|OWNER|FITNESS|ASPERSERIAL).*$/i, '');
+            if (cleaned.length > 10) cleaned = cleaned.slice(0, 10);
+            registration = cleaned;
+        }
     }
 
-    // 2. Owner Name matching - prioritize same line
+    // 2. Owner Name matching
     let owner = "";
-    const ownerMatch = text.match(/Owner\s*Name\s*[:\-\|\s]*\s*([A-Za-z ]{3,30})/i)
-        || text.match(/Owner\s*[:\-\|\s]*\s*([A-Za-z ]{3,30})/i);
-    if (ownerMatch && ownerMatch[1] && ownerMatch[1].trim().length >= 3 && !/^(name|owner)$/i.test(ownerMatch[1].trim())) {
-        owner = cleanField(ownerMatch[1]);
-    } else {
-        const ownerLineBelow = text.match(/Owner\s*Name[^\n]*\n+\s*([A-Za-z\s\]\[\=]+)/i);
-        if (ownerLineBelow) {
-            owner = cleanField(ownerLineBelow[1]);
+    const ownerHeaderIdx = lines.findIndex(l => /Owner\s*Name/i.test(l) || /Owner:/i.test(l));
+    if (ownerHeaderIdx !== -1 && lines[ownerHeaderIdx + 1] && !/Father|Son|Fuel|Address/i.test(lines[ownerHeaderIdx + 1])) {
+        owner = cleanField(lines[ownerHeaderIdx + 1]);
+    }
+    if (!owner) {
+        const ownerMatch = text.match(/Owner\s*Name\s*[:\-\|\s]*\s*([A-Za-z ]{3,30})/i)
+            || text.match(/Owner\s*[:\-\|\s]*\s*([A-Za-z ]{3,30})/i);
+        if (ownerMatch && ownerMatch[1] && ownerMatch[1].trim().length >= 3 && !/^(name|owner)$/i.test(ownerMatch[1].trim())) {
+            owner = cleanField(ownerMatch[1]);
+        } else {
+            const ownerLineBelow = text.match(/Owner\s*Name[^\n]*\n+\s*([A-Za-z\s\]\[\=]+)/i);
+            if (ownerLineBelow) {
+                owner = cleanField(ownerLineBelow[1]);
+            }
         }
     }
     owner = owner.replace(/\s+(?:Son|Daughter|Wife|Fuel).*$/i, '').trim();
 
     // 3. Father Name matching
     let father = "";
-    const fatherLineBelow = text.match(/(?:Son\/Daughter\/Wife\s*of|Son\/Wife\/Daughter\s*of)[^\n]*\n+(?:Fuel\s*)?([A-Za-z\s]+)/i);
-    if (fatherLineBelow) {
-        father = cleanField(fatherLineBelow[1]);
+    const fatherMatch = text.match(/(?:Son\/Daughter\/Wife\s*of|Son\/Wife\/Daughter\s*of)\s*(?:\([^)]*\))?\s*:?\s*([A-Za-z ]+)/i);
+    if (fatherMatch) {
+        father = cleanField(fatherMatch[1]);
     } else {
-        const fatherMatch = text.match(/(?:Son\/Daughter\/Wife\s*of|Son\/Wife\/Daughter\s*of)\s*(?:\([^)]*\))?\s*:?\s*([A-Za-z ]+)/i);
-        father = fatherMatch ? cleanField(fatherMatch[1]) : "";
+        const fatherLineBelow = text.match(/(?:Son\/Daughter\/Wife\s*of|Son\/Wife\/Daughter\s*of)[^\n]*\n+(?:Fuel\s*)?([A-Za-z\s]+)/i);
+        if (fatherLineBelow) {
+            father = cleanField(fatherLineBelow[1]);
+        }
     }
     father = father.replace(/^(?:DESEL|DIESEL|PETROL|Address)\s+/i, '').trim();
 
@@ -258,38 +261,50 @@ exports.extractRC = (text) => {
 
     // 6. Maker's Name matching
     let maker = "";
-    const knownMaker = text.match(/(TATA\s*MOTORS\s*(?:LTD)?|TATAMOTORS\s*(?:LTD)?|ASHOK\s*LEYLAND|MAHINDRA|MARUTI\s*SUZUKI|HYUNDAI|HERO|HONDA|BAJAJ|EICHER|VOLVO|ROYAL\s*ENFIELD)/i);
-    if (knownMaker) {
-        maker = knownMaker[0].replace("TATAMOTORS", "TATA MOTORS").trim();
-    } else {
-        const makerMatch = text.match(/(?:Maker's\s*Name|Maker|REF\.MFG)[^\n]*\n?\s*:?\s*([A-Za-z0-9\s]+)/i);
-        if (makerMatch) {
-            let val = cleanField(makerMatch[1]);
-            maker = (val.length < 3 || /^(ih|jE|Fi|j|A)$/i.test(val)) ? "" : val;
+    const makerHeaderIdx = lines.findIndex(l => /Maker's\s*Name/i.test(l));
+    if (makerHeaderIdx !== -1 && lines[makerHeaderIdx + 1]) {
+        maker = cleanField(lines[makerHeaderIdx + 1]);
+    }
+    if (!maker) {
+        const knownMaker = text.match(/(TATA\s*MOTORS\s*(?:LTD)?|TATAMOTORS\s*(?:LTD)?|ASHOK\s*LEYLAND|MAHINDRA|MARUTI\s*SUZUKI|HYUNDAI|HERO|HONDA|BAJAJ|EICHER|VOLVO|ROYAL\s*ENFIELD)/i);
+        if (knownMaker) {
+            maker = knownMaker[0].replace("TATAMOTORS", "TATA MOTORS").trim();
+        } else {
+            const makerMatch = text.match(/(?:Maker's\s*Name|Maker|REF\.MFG)[^\n]*\n?\s*:?\s*([A-Za-z0-9\s]+)/i);
+            if (makerMatch) {
+                let val = cleanField(makerMatch[1]);
+                maker = (val.length < 3 || /^(ih|jE|Fi|j|A)$/i.test(val)) ? "" : val;
+            }
         }
     }
 
     // 7. Model Name matching
     let model = "";
-    const knownModel = text.match(/(TATA\s*LPT\s*[A-Z0-9\s\-]{3,30}|TATA\s*SIGNA\s*[A-Z0-9\s\-]{3,30})/i);
-    if (knownModel) {
-        model = cleanField(knownModel[0]);
-    } else {
-        const modelLineBelow = text.match(/Model\s*Name[^\n]*\n+([^\n]+)/i)
-            || text.match(/Model\s*:[^\n]*\n+([^\n]+)/i);
-        if (modelLineBelow) {
-            model = cleanField(modelLineBelow[1]);
+    const modelHeaderIdx = lines.findIndex(l => /Model\s*Name/i.test(l));
+    if (modelHeaderIdx !== -1 && lines[modelHeaderIdx + 1]) {
+        model = cleanField(lines[modelHeaderIdx + 1]);
+    }
+    if (!model) {
+        const knownModel = text.match(/(TATA\s*LPT\s*[A-Z0-9\s\-]{3,30}|TATA\s*SIGNA\s*[A-Z0-9\s\-]{3,30})/i);
+        if (knownModel) {
+            model = cleanField(knownModel[0]);
         } else {
-            const modelMatch = text.match(/(?:Model\s*Name|Model)[^\n]*\n?\s*:?\s*([A-Za-z0-9\s\.\-]+)/i);
-            if (modelMatch) {
-                let val = cleanField(modelMatch[1]);
-                model = (val.length < 3 || /^\d{1,3}$/.test(val)) ? "" : val;
+            const modelLineBelow = text.match(/Model\s*Name[^\n]*\n+([^\n]+)/i)
+                || text.match(/Model\s*:[^\n]*\n+([^\n]+)/i);
+            if (modelLineBelow) {
+                model = cleanField(modelLineBelow[1]);
+            } else {
+                const modelMatch = text.match(/(?:Model\s*Name|Model)[^\n]*\n?\s*:?\s*([A-Za-z0-9\s\.\-]+)/i);
+                if (modelMatch) {
+                    let val = cleanField(modelMatch[1]);
+                    model = (val.length < 3 || /^\d{1,3}$/.test(val)) ? "" : val;
+                }
             }
         }
     }
 
     // 8. Vehicle Class matching
-    const classMatch = text.match(/Vehicle\s*Class\s*:?\s*([A-Za-z0-9\s\(\)]+)/i);
+    const classMatch = text.match(/(?:Vehicle\s*Class|Class)\s*[:\-\|\s]*\s*([A-Za-z0-9\s\(\)]+)/i);
     let vehicleClass = classMatch ? cleanField(classMatch[1]) : "";
     if (vehicleClass) {
         vehicleClass = vehicleClass.replace(/\s+\d+$/, '').trim();
@@ -297,38 +312,47 @@ exports.extractRC = (text) => {
 
     // 9. Registration Authority matching
     let authority = "";
-    const authorityMatch = text.match(/(?:Registration\s*Authority|Authonty|Authority)\s*[^\n]*\n+\s*([A-Za-z0-9\s]+RTO|[A-Za-z0-9\s]+R\.T\.O)/i)
-        || text.match(/\b([A-Za-z0-9\s]+RTO)\b/i);
-    if (authorityMatch) {
-        const rawAuth = cleanField(authorityMatch[1]);
-        // Extract the valid RTO name (last two words including RTO)
-        const rtoMatch = rawAuth.match(/\b([A-Z0-9\s\-]+RTO)\b/i);
-        if (rtoMatch) {
-            const parts = rtoMatch[1].trim().split(/\s+/);
-            authority = parts.slice(-2).join(' ');
-        } else {
-            authority = rawAuth;
+    const authHeaderIdx = lines.findIndex(l => /Registration\s*Authority|Authonty/i.test(l));
+    if (authHeaderIdx !== -1 && lines[authHeaderIdx + 1]) {
+        authority = cleanField(lines[authHeaderIdx + 1]);
+    }
+    if (!authority) {
+        const authorityMatch = text.match(/(?:Registration\s*Authority|Authonty|Authority)\s*[^\n]*\n+\s*([A-Za-z0-9\s]+RTO|[A-Za-z0-9\s]+R\.T\.O)/i)
+            || text.match(/\b([A-Za-z0-9\s]+RTO)\b/i);
+        if (authorityMatch) {
+            const rawAuth = cleanField(authorityMatch[1]);
+            const rtoMatch = rawAuth.match(/\b([A-Z0-9\s\-]+RTO)\b/i);
+            if (rtoMatch) {
+                const parts = rtoMatch[1].trim().split(/\s+/);
+                authority = parts.slice(-2).join(' ');
+            } else {
+                authority = rawAuth;
+            }
         }
     }
 
     // 10. Financier matching
     let financier = "";
-    const linesList = text.split(/\r?\n/);
-    const finHeaderIdx = linesList.findIndex(l => /Financier/i.test(l));
-    if (finHeaderIdx !== -1) {
-        // Scan the next 4 lines to allow for empty lines or double carriage returns
-        for (let i = finHeaderIdx + 1; i <= Math.min(finHeaderIdx + 4, linesList.length - 1); i++) {
-            const finMatch = linesList[i].match(/\b([A-Z0-9\s\-]+(?:LIMITED|BANK|FINANCE|LTD|COOP|SERVICES))\b/i);
-            if (finMatch) {
-                financier = cleanField(finMatch[1]);
-                break;
-            }
-        }
+    const finHeaderIdx = lines.findIndex(l => /Financier/i.test(l));
+    if (finHeaderIdx !== -1 && lines[finHeaderIdx + 1]) {
+        financier = cleanField(lines[finHeaderIdx + 1]);
     }
     if (!financier) {
-        const financierMatch = text.match(/Financier\s*:?\s*\n?\s*([A-Z0-9\s]+(?:LIMITED|BANK|FINANCE|LTD))/i);
-        if (financierMatch) {
-            financier = cleanField(financierMatch[1]);
+        const finHeaderIdxRegex = lines.findIndex(l => /Financier/i.test(l));
+        if (finHeaderIdxRegex !== -1) {
+            for (let i = finHeaderIdxRegex + 1; i <= Math.min(finHeaderIdxRegex + 4, lines.length - 1); i++) {
+                const finMatch = lines[i].match(/\b([A-Z0-9\s\-]+(?:LIMITED|BANK|FINANCE|LTD|COOP|SERVICES))\b/i);
+                if (finMatch) {
+                    financier = cleanField(finMatch[1]);
+                    break;
+                }
+            }
+        }
+        if (!financier) {
+            const financierMatch = text.match(/Financier\s*:?\s*\n?\s*([A-Z0-9\s]+(?:LIMITED|BANK|FINANCE|LTD))/i);
+            if (financierMatch) {
+                financier = cleanField(financierMatch[1]);
+            }
         }
     }
 
@@ -337,7 +361,6 @@ exports.extractRC = (text) => {
     let registrationValidity = "";
     let fitnessValidity = "";
 
-    // Header table/line-based match: "Date of Regn. Regn. Validity" -> "10-Mar-2022 As per Fitness"
     const dateOfRegnMatch = text.match(/Date\s*of\s*Regn\.?\s*(?:Regn\.?\s*Validity)?\s*[^\n]*\n+[^\n]*\b(\d{2}[-\/\.][A-Za-z0-9]{3,4}[-\/\.]\d{4})\b/i);
     if (dateOfRegnMatch) {
         registrationDate = dateOfRegnMatch[1];
@@ -357,7 +380,6 @@ exports.extractRC = (text) => {
         }
     }
 
-    // Fallback: search for any MM-YYYY date as registration date if empty
     if (!registrationDate) {
         const mmYyyyMatch = text.match(/\b(\d{2}[-\/\.]\d{4})\b/);
         if (mmYyyyMatch) {
@@ -383,37 +405,88 @@ exports.extractRC = (text) => {
     const fuelMatch = text.match(/(?:Fuel\s*Type|Fuel)\s*[:\-\|\s]*\s*(DIESEL|PETROL|CNG|LPG|EV|ELECTRIC)/i);
     const fuelType = fuelMatch ? fuelMatch[1].trim().toLowerCase() : "diesel";
 
-    // Vehicle Color
-    const colorMatch = text.match(/(?:Colo[ur]+|Color)\s*[:\-\|\s]*\s*([A-Za-z]+)/i);
-    const color = colorMatch ? cleanField(colorMatch[1]) : "";
+    // Colour & Body Type split row matching
+    let color = "";
+    let bodyType = "open trolly";
+    const colorHeaderIdx = lines.findIndex(l => /Colour/i.test(l) && /Body\s*Type/i.test(l));
+    if (colorHeaderIdx !== -1 && lines[colorHeaderIdx + 1]) {
+        const parts = lines[colorHeaderIdx + 1].split(/\s*[\/\\]\s*/);
+        if (parts[0]) color = cleanField(parts[0]);
+        if (parts[1]) bodyType = cleanField(parts[1]);
+    } else {
+        const colorMatch = text.match(/(?:Colo[ur]+|Color)\s*[:\-\|\s]*\s*([A-Za-z\s]+)/i);
+        if (colorMatch) color = cleanField(colorMatch[1]);
 
-    // Cubic Capacity (cc)
-    const ccMatch = text.match(/(?:Cubic\s*Cap(?:acity)?|C\.C\.|CC)\s*[:\-\|\s]*\s*(\d+)/i);
-    const cubicCapacity = ccMatch ? ccMatch[1].trim() : "";
+        const bodyMatch = text.match(/(?:Body\s*Type)\s*[:\-\|\s]*\s*([A-Za-z\s]+)/i);
+        if (bodyMatch) bodyType = cleanField(bodyMatch[1]);
+    }
 
-    // Unladen Weight
-    const unladenMatch = text.match(/(?:Unladen\s*Wt|Unladen\s*Weight|U\.L\.\s*Wt|UL\s*Wt)\s*[:\-\|\s]*\s*(\d+)/i);
-    const unladenWeight = unladenMatch ? unladenMatch[1].trim() : "";
+    // Weight split row matching (Unladen / Laden / Gross Combination Weight)
+    let unladenWeight = "";
+    let grossWeight = "";
+    const weightHeaderIdx = lines.findIndex(l => /Unladen/i.test(l) && /Laden/i.test(l));
+    if (weightHeaderIdx !== -1 && lines[weightHeaderIdx + 1]) {
+        const parts = lines[weightHeaderIdx + 1].split(/\s*[\/\\]\s*/);
+        if (parts[0]) unladenWeight = parts[0].trim();
+        if (parts[1]) grossWeight = parts[1].trim();
+    } else {
+        const unladenMatch = text.match(/(?:Unladen\s*Wt|Unladen\s*Weight|U\.L\.\s*Wt|UL\s*Wt)\s*[:\-\|\s]*\s*(\d+)/i);
+        if (unladenMatch) unladenWeight = unladenMatch[1].trim();
 
-    // Gross Vehicle Weight
-    const grossMatch = text.match(/(?:Gross\s*Wt|Gross\s*Weight|G\.V\.W|GVW)\s*[:\-\|\s]*\s*(\d+)/i);
-    const grossWeight = grossMatch ? grossMatch[1].trim() : "";
+        const grossMatch = text.match(/(?:Gross\s*Wt|Gross\s*Weight|G\.V\.W|GVW|Laden)\s*[:\-\|\s]*\s*(\d+)/i);
+        if (grossMatch) grossWeight = grossMatch[1].trim();
+    }
 
-    // Manufacturing Date
-    const mfgMatch = text.match(/(?:Mfg\s*Date|MFG\s*DT|MFG|Month\/Yr|Mfg\s*Yr|Mfg\s*Year)\s*[:\-\|\s]*\s*(\d{2}[-\/\.]\d{4}|\d{4})/i);
+    // Cubic Capacity CC split row matching
+    let cubicCapacity = "";
+    const ccHeaderIdx = lines.findIndex(l => /Cubic\s*Cap/i.test(l) && /Horse\s*Power/i.test(l));
+    if (ccHeaderIdx !== -1 && lines[ccHeaderIdx + 1]) {
+        const parts = lines[ccHeaderIdx + 1].split(/\s*[\/\\]\s*/);
+        if (parts[0]) cubicCapacity = parts[0].trim();
+    } else {
+        const ccMatch = text.match(/(?:Cubic\s*Cap(?:acity)?|C\.C\.|CC)\s*[:\-\|\s]*\s*([\d\.]+)/i);
+        if (ccMatch) cubicCapacity = ccMatch[1].trim();
+    }
+
+    // Manufacturing Month-Year row matching
     let manufacturingDate = "";
-    if (mfgMatch) {
-        const rawMfg = mfgMatch[1].trim();
-        if (rawMfg.length === 4) {
+    const mfgHeaderIdx = lines.findIndex(l => /Month-Year\s*of\s*Mfg/i.test(l));
+    if (mfgHeaderIdx !== -1 && lines[mfgHeaderIdx + 1]) {
+        const rawMfg = lines[mfgHeaderIdx + 1].trim();
+        const parts = rawMfg.split(/[-\/\.]/);
+        if (parts.length === 2) {
+            manufacturingDate = `01-${parts[0]}-${parts[1]}`;
+        } else if (rawMfg.length === 4) {
             manufacturingDate = `01-01-${rawMfg}`;
-        } else {
-            const parts = rawMfg.split(/[-\/\.]/);
-            if (parts.length === 2) {
-                manufacturingDate = `01-${parts[0]}-${parts[1]}`;
+        }
+    }
+    if (!manufacturingDate) {
+        const mfgMatch = text.match(/(?:Mfg\s*Date|MFG\s*DT|MFG|Month\/Yr|Mfg\s*Yr|Mfg\s*Year)\s*[:\-\|\s]*\s*(\d{2}[-\/\.]\d{4}|\d{4})/i);
+        if (mfgMatch) {
+            const rawMfg = mfgMatch[1].trim();
+            if (rawMfg.length === 4) {
+                manufacturingDate = `01-01-${rawMfg}`;
             } else {
-                manufacturingDate = rawMfg.replace(/[\/\.]/g, '-');
+                const parts = rawMfg.split(/[-\/\.]/);
+                if (parts.length === 2) {
+                    manufacturingDate = `01-${parts[0]}-${parts[1]}`;
+                } else {
+                    manufacturingDate = rawMfg.replace(/[\/\.]/g, '-');
+                }
             }
         }
+    }
+
+    // Axles & Estimated Wheels
+    const axleMatch = text.match(/(?:No\s*of\s*Axle|Axles?)\s*[:\-\|\s]*\s*(\d+)/i);
+    let numberOfWheels = "10";
+    if (axleMatch) {
+        const axles = parseInt(axleMatch[1]);
+        if (axles === 2) numberOfWheels = "6";
+        else if (axles === 3) numberOfWheels = "10";
+        else if (axles === 4) numberOfWheels = "12";
+        else if (axles === 5) numberOfWheels = "10";
+        else if (axles >= 6) numberOfWheels = "12";
     }
 
     // Owner Address
@@ -436,23 +509,24 @@ exports.extractRC = (text) => {
             break;
         }
     }
-    if (!state && regMatch) {
-        const prefix = regMatch.slice(0, 2).toUpperCase();
-        const stateMap = {
-            "OD": "Odisha", "OR": "Odisha", "DL": "Delhi", "MH": "Maharashtra", "KA": "Karnataka",
-            "TN": "Tamil Nadu", "AP": "Andhra Pradesh", "TS": "Telangana", "WB": "West Bengal",
-            "UP": "Uttar Pradesh", "GJ": "Gujarat", "HR": "Haryana", "PB": "Punjab", "MP": "Madhya Pradesh"
-        };
-        state = stateMap[prefix] || "";
+    if (!state) {
+        const regCheck = registration;
+        if (regCheck) {
+            const prefix = regCheck.slice(0, 2).toUpperCase();
+            const stateMap = {
+                "OD": "Odisha", "OR": "Odisha", "DL": "Delhi", "MH": "Maharashtra", "KA": "Karnataka",
+                "TN": "Tamil Nadu", "AP": "Andhra Pradesh", "TS": "Telangana", "WB": "West Bengal",
+                "UP": "Uttar Pradesh", "GJ": "Gujarat", "HR": "Haryana", "PB": "Punjab", "MP": "Madhya Pradesh"
+            };
+            state = stateMap[prefix] || "";
+        }
     }
 
-    // Try to infer district from RTO authority
     let district = "";
     if (authority) {
         district = authority.replace(/RTO|R\.T\.O/gi, '').trim();
     }
 
-    // Infer Area from RTO/Address
     let area = "";
     if (address) {
         const addressWords = address.split(",");
@@ -485,7 +559,9 @@ exports.extractRC = (text) => {
         pinCode,
         state,
         district,
-        area
+        area,
+        numberOfWheels,
+        bodyType
     };
 };
 
@@ -560,13 +636,8 @@ exports.extractGeneric = (text) => {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     const documentTitle = lines.length > 0 ? lines[0] : "Document";
 
-    // Extract all dates
     const dates = text.match(/\b\d{2}[-\/\.]\d{2}[-\/\.]\d{4}\b/g) || [];
-
-    // Extract reference numbers (alphanumeric codes)
     const numbers = text.match(/\b[A-Z0-9]{6,20}\b/g) || [];
-
-    // Extract potential names
     const potentialNames = text.match(/(?:Name|Owner|Holder|Customer|User|To)\s*:?\s*([A-Za-z ]+)/i);
 
     return {
