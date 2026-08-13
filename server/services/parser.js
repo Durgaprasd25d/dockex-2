@@ -133,6 +133,26 @@ exports.extractDL = (text) => {
     };
 };
 
+// Helper to extract registration number from a text segment or line
+const extractRegistrationNumber = (str) => {
+    if (!str) return "";
+    const words = str.split(/\s+/);
+    for (const w of words) {
+        const cleaned = w.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        // Check standard Indian state prefix and format
+        if (cleaned.length >= 7 && cleaned.length <= 11 && /^(AN|AP|AR|AS|BR|CH|CG|DN|DD|DL|GA|GJ|HR|HP|JK|JH|KA|KL|LD|MP|MH|MN|ML|MZ|NL|OD|OR|PB|PY|RJ|SK|TN|TS|TR|UP|UK|UA|WB|0D|OS|O0|OD0|0M|AO|IO)/i.test(cleaned)) {
+            return cleaned;
+        }
+    }
+    for (const w of words) {
+        const cleaned = w.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        if (cleaned.length >= 8 && cleaned.length <= 11) {
+            return cleaned;
+        }
+    }
+    return "";
+};
+
 exports.extractRC = (text) => {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
@@ -164,44 +184,74 @@ exports.extractRC = (text) => {
 
     // 1. Vehicle Class
     const classMatch = text.match(/(?:Vehicle\s*Class|Class)\s*[:\-\|\s]*\s*([A-Za-z0-9\s\(\)]+)/i);
-    if (classMatch) vehicle_class = cleanField(classMatch[1]);
+    if (classMatch) {
+        vehicle_class = cleanField(classMatch[1]);
+        // Remove trailing single number noise (e.g. HGV 3 -> HGV)
+        vehicle_class = vehicle_class.replace(/\s+\d+$/, '').trim();
+    }
 
     // 2. Registration Number
     const regHeaderIdx = lines.findIndex(l => /Regn\.\s*Number|Regn\s*No|Registration\s*No|Reg\s*No/i.test(l));
-    if (regHeaderIdx !== -1 && lines[regHeaderIdx + 1] && !/Maker|Model|Owner|Address/i.test(lines[regHeaderIdx + 1])) {
-        registration_number = lines[regHeaderIdx + 1].trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (regHeaderIdx !== -1 && lines[regHeaderIdx + 1]) {
+        registration_number = extractRegistrationNumber(lines[regHeaderIdx + 1]);
     }
     if (!registration_number) {
         const regMatch = text.match(/(?:Regn\s*Number|Regn\s*No|Registration\s*No|Reg\s*No)\s*[:\-\|\s]*\s*([A-Z0-9\-]{7,15})/i)
             || text.match(/\b([A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4})\b/i)
             || text.match(/\b([A-Z]{2}[0-9]{2}[A-Z]{0,2}\d{1,4})\b/i);
-        if (regMatch) registration_number = regMatch[1].replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        if (regMatch) registration_number = extractRegistrationNumber(regMatch[1]) || regMatch[1].replace(/[^A-Z0-9]/gi, '').toUpperCase();
     }
 
     // 3. Maker's Name
-    const makerHeaderIdx = lines.findIndex(l => /Maker's\s*Name/i.test(l));
+    const makerHeaderIdx = lines.findIndex(l => /Maker/i.test(l));
     if (makerHeaderIdx !== -1 && lines[makerHeaderIdx + 1]) {
-        maker_name = cleanField(lines[makerHeaderIdx + 1]);
+        let val = lines[makerHeaderIdx + 1];
+        if (registration_number) {
+            val = val.replace(new RegExp(registration_number, "gi"), "");
+        }
+        maker_name = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
+        maker_name = maker_name.replace(/\s+[a-zA-Z]$/, '').trim(); // Strip trailing single-character noise
     } else {
         const makerMatch = text.match(/(?:Maker's\s*Name|Maker|REF\.MFG)\s*[:\-\|\s]*\s*([A-Za-z0-9\s]+)/i);
         if (makerMatch) maker_name = cleanField(makerMatch[1]);
     }
 
     // 4. Model Name
-    const modelHeaderIdx = lines.findIndex(l => /Model\s*Name/i.test(l));
+    const modelHeaderIdx = lines.findIndex(l => /Mod[eo]l/i.test(l));
     if (modelHeaderIdx !== -1 && lines[modelHeaderIdx + 1]) {
-        model_name = cleanField(lines[modelHeaderIdx + 1]);
+        let val = lines[modelHeaderIdx + 1];
+        // Strip common prefix QR noise (e.g. Oza PI [5])
+        val = val.replace(/^[a-z0-9\s\]\[\=\#\/\(\)\+]{1,15}(?=TATA|ASHOK|LEYLAND|MAHINDRA|EICHER|MARUTI)/i, '');
+        model_name = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
+        model_name = model_name.replace(/\s+[a-zA-Z]$/, '').trim(); // Strip trailing single-character noise
     } else {
         const modelMatch = text.match(/(?:Model\s*Name|Model)\s*[:\-\|\s]*\s*([A-Za-z0-9\s\.\-]+)/i);
         if (modelMatch) model_name = cleanField(modelMatch[1]);
     }
 
     // 5 & 6. Colour & Body Type split row matching
-    const colorHeaderIdx = lines.findIndex(l => /Colour/i.test(l) && /Body\s*Type/i.test(l));
+    const colorHeaderIdx = lines.findIndex(l => /Col/i.test(l) && /Body\s*Type/i.test(l));
     if (colorHeaderIdx !== -1 && lines[colorHeaderIdx + 1]) {
         const parts = lines[colorHeaderIdx + 1].split(/\s*[\/\\]\s*/);
-        if (parts[0]) colour = cleanField(parts[0]);
-        if (parts[1]) body_type = cleanField(parts[1]);
+        if (parts[0]) {
+            let val = parts[0];
+            const colorMatch = val.match(/(MAROON|ORANGE|BLUE|RED|WHITE|BLACK|YELLOW|GREEN|GREY|BROWN|SILVER|GOLD|PINK|PURPLE|MULTICOLOUR|AMBER)/i);
+            if (colorMatch) {
+                colour = val.substring(val.toLowerCase().indexOf(colorMatch[0].toLowerCase())).trim();
+            } else {
+                colour = val.replace(/^[a-z0-9\s\:\-\/\#\=\[\]\”\“\']+(?=[A-Z]{3,})/gi, '').trim();
+            }
+        }
+        if (parts[1]) {
+            let val = parts[1];
+            const bodyMatch = val.match(/(TRUCK|OPEN|TRACTOR|BUS|CAR|TROLLEY|TANKER|CONTAINER|TIPPER|CAB|CHASSIS)/i);
+            if (bodyMatch) {
+                body_type = val.substring(val.toLowerCase().indexOf(bodyMatch[0].toLowerCase())).trim();
+            } else {
+                body_type = val.replace(/^[a-z0-9\s\:\-\/\#\=\[\]\”\“\']+(?=[A-Z]{3,})/gi, '').trim();
+            }
+            body_type = body_type.replace(/\s+[a-zA-Z]$/, '').trim();
+        }
     } else {
         const colorMatch = text.match(/(?:Colo[ur]+|Color)\s*[:\-\|\s]*\s*([A-Za-z\s]+)(?=(?:\/|Body\s*Type|$))/i);
         if (colorMatch) colour = cleanField(colorMatch[1]);
@@ -213,10 +263,21 @@ exports.extractRC = (text) => {
     // 7. Seating / Standing / Sleeper Capacity split row matching
     const capHeaderIdx = lines.findIndex(l => /Seating/i.test(l) && /Standing/i.test(l));
     if (capHeaderIdx !== -1 && lines[capHeaderIdx + 1]) {
-        const parts = lines[capHeaderIdx + 1].split(/\s*[\/\\]\s*/);
-        if (parts[0]) seating = parts[0].trim();
-        if (parts[1]) standing = parts[1].trim();
-        if (parts[2]) sleeper = parts[2].trim();
+        let capLine = lines[capHeaderIdx + 1];
+        capLine = capLine.replace(/\bio\b/gi, '0').replace(/\bo\b/gi, '0').replace(/\bl\b/gi, '1');
+        capLine = capLine.replace(/\b[a-zA-Z]\b/g, ''); // Clear single letters
+        const validNums = capLine.match(/\b\d+\b/g);
+        if (validNums && validNums.length >= 3) {
+            const startIdx = validNums.length - 3;
+            seating = validNums[startIdx];
+            standing = validNums[startIdx + 1];
+            sleeper = validNums[startIdx + 2];
+        } else if (validNums && validNums.length === 2) {
+            seating = validNums[0];
+            standing = validNums[1];
+        } else if (validNums && validNums.length === 1) {
+            seating = validNums[0];
+        }
     } else {
         const seatMatch = text.match(/Seating\s*(?:\(in\s*all\))?\s*[:\-\|\s]*\s*(\d+)/i);
         if (seatMatch) seating = seatMatch[1];
@@ -229,10 +290,22 @@ exports.extractRC = (text) => {
     // 8. Weight split row matching
     const weightHeaderIdx = lines.findIndex(l => /Unladen/i.test(l) && /Laden/i.test(l));
     if (weightHeaderIdx !== -1 && lines[weightHeaderIdx + 1]) {
-        const parts = lines[weightHeaderIdx + 1].split(/\s*[\/\\]\s*/);
-        if (parts[0]) unladen_kg = parts[0].trim();
-        if (parts[1]) laden_kg = parts[1].trim();
-        if (parts[2]) gross_combination_weight_kg = parts[2].trim();
+        let wtLine = lines[weightHeaderIdx + 1];
+        const cleanSegments = wtLine
+            .split(/\s+/)
+            .map(s => s.replace(/^[^A-Za-z0-9]+/, '').replace(/[^A-Za-z0-9]+$/, '').trim())
+            .filter(s => s.length > 0 && s !== "i" && s !== "I" && s !== "£");
+        if (cleanSegments.length >= 3) {
+            const startIdx = cleanSegments.length - 3;
+            unladen_kg = cleanSegments[startIdx];
+            laden_kg = cleanSegments[startIdx + 1];
+            gross_combination_weight_kg = cleanSegments[startIdx + 2];
+        } else if (cleanSegments.length === 2) {
+            unladen_kg = cleanSegments[0];
+            laden_kg = cleanSegments[1];
+        } else if (cleanSegments.length === 1) {
+            unladen_kg = cleanSegments[0];
+        }
     } else {
         const unladenMatch = text.match(/(?:Unladen\s*Wt|Unladen\s*Weight|U\.L\.\s*Wt|UL\s*Wt|Unladen)\s*[:\-\|\s]*\s*(\d+)/i);
         if (unladenMatch) unladen_kg = unladenMatch[1].trim();
@@ -247,10 +320,22 @@ exports.extractRC = (text) => {
     // 9. Cubic Capacity / Horse Power / Wheel Base split row matching
     const ccHeaderIdx = lines.findIndex(l => /Cubic\s*Cap/i.test(l) && /Horse\s*Power/i.test(l));
     if (ccHeaderIdx !== -1 && lines[ccHeaderIdx + 1]) {
-        const parts = lines[ccHeaderIdx + 1].split(/\s*[\/\\]\s*/);
-        if (parts[0]) cubic_capacity = parts[0].trim();
-        if (parts[1]) horse_power = parts[1].trim();
-        if (parts[2]) wheel_base_mm = parts[2].trim();
+        let ccLine = lines[ccHeaderIdx + 1];
+        const cleanSegments = ccLine
+            .split(/\s+/)
+            .map(s => s.replace(/^[^A-Za-z0-9\.]+/, '').replace(/[^A-Za-z0-9\.]+$/, '').trim())
+            .filter(s => s.length > 0 && s !== ";" && s !== "i" && s !== "I" && s !== "©");
+        if (cleanSegments.length >= 3) {
+            const startIdx = cleanSegments.length - 3;
+            cubic_capacity = cleanSegments[startIdx];
+            horse_power = cleanSegments[startIdx + 1];
+            wheel_base_mm = cleanSegments[startIdx + 2];
+        } else if (cleanSegments.length === 2) {
+            cubic_capacity = cleanSegments[0];
+            horse_power = cleanSegments[1];
+        } else if (cleanSegments.length === 1) {
+            cubic_capacity = cleanSegments[0];
+        }
     } else {
         const ccMatch = text.match(/(?:Cubic\s*Cap(?:acity)?|C\.C\.|CC)\s*[:\-\|\s]*\s*([\d\.]+)/i);
         if (ccMatch) cubic_capacity = ccMatch[1].trim();
@@ -263,7 +348,11 @@ exports.extractRC = (text) => {
     // 10. Financier
     const finHeaderIdx = lines.findIndex(l => /Financier/i.test(l));
     if (finHeaderIdx !== -1 && lines[finHeaderIdx + 1]) {
-        financier = cleanField(lines[finHeaderIdx + 1]);
+        let val = lines[finHeaderIdx + 1];
+        if (val.includes(",")) {
+            val = val.split(",")[1];
+        }
+        financier = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
     } else {
         const financierMatch = text.match(/Financier\s*[:\-\|\s]*\s*([A-Za-z0-9\s]+(?:LIMITED|BANK|FINANCE|LTD|COOP|SERVICES))/i)
             || text.match(/Financier\s*[:\-\|\s]*\s*([A-Za-z0-9\s]+)/i);
@@ -271,16 +360,18 @@ exports.extractRC = (text) => {
     }
 
     // 11. Month-Year of Manufacturing
-    const mfgHeaderIdx = lines.findIndex(l => /Month-Year\s*of\s*Mfg/i.test(l));
-    if (mfgHeaderIdx !== -1 && lines[mfgHeaderIdx + 1]) {
-        month_year_of_manufacture = lines[mfgHeaderIdx + 1].trim();
+    const mfgMatch = text.match(/\b(\d{2}-\d{4})\b/) || text.match(/\b(\d{2}\/\d{4})\b/);
+    if (mfgMatch) {
+        month_year_of_manufacture = mfgMatch[1].trim();
     } else {
-        const mfgMatch = text.match(/(?:Mfg\s*Date|MFG\s*DT|MFG|Month\-Year\s*of\s*Mfg|Month\/Yr|Mfg\s*Yr|Mfg\s*Year)\s*[:\-\|\s]*\s*(\d{2}[-\/\.]\d{4}|\d{4})/i);
-        if (mfgMatch) month_year_of_manufacture = mfgMatch[1].trim();
+        const mfgHeaderIdx = lines.findIndex(l => /Month-Year\s*of\s*Mfg/i.test(l));
+        if (mfgHeaderIdx !== -1 && lines[mfgHeaderIdx + 1]) {
+            month_year_of_manufacture = lines[mfgHeaderIdx + 1].trim();
+        }
     }
 
     // 12. Number of Cylinders
-    const cylMatch = text.match(/(?:No\.\s*of\s*Cylinders?|No\s*of\s*Cylinders?|Cylinders?)\s*[:\-\|\s]*\s*(\d+)/i);
+    const cylMatch = text.match(/(?:No\.\s*of\s*Cylinders?|No\s*of\s*Cylinders?|Cylinders?|NocrOindes)\s*[:\-\|\s]*\s*(\d+)/i);
     if (cylMatch) number_of_cylinders = cylMatch[1].trim();
 
     // 13. Number of Axles
@@ -290,7 +381,13 @@ exports.extractRC = (text) => {
     // 14. Registration Authority
     const authHeaderIdx = lines.findIndex(l => /Registration\s*Authority|Authonty/i.test(l));
     if (authHeaderIdx !== -1 && lines[authHeaderIdx + 1]) {
-        registration_authority = cleanField(lines[authHeaderIdx + 1]);
+        const val = lines[authHeaderIdx + 1];
+        const rtoMatch = val.match(/\b([A-Za-z\s\-]+RTO)\b/i);
+        if (rtoMatch) {
+            registration_authority = rtoMatch[1].trim();
+        } else {
+            registration_authority = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
+        }
     } else {
         const authMatch = text.match(/(?:Registration\s*Authority|Authonty|Authority)\s*[:\-\|\s]*\s*([A-Za-z0-9\s]+RTO|[A-Za-z0-9\s]+R\.T\.O)/i)
             || text.match(/\b([A-Za-z0-9\s]+RTO)\b/i);
