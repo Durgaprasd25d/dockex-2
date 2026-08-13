@@ -122,6 +122,13 @@ function RegisterVehicleForm({ data, onClose }) {
                     return cleanStr;
                 }
 
+                // Handle MM-YYYY or MM/YYYY (e.g. 07-2021)
+                const mmyyyyMatch = cleanStr.match(/^(\d{2})[-/](\d{4})$/);
+                if (mmyyyyMatch) {
+                    const [_, month, year] = mmyyyyMatch;
+                    return `${year}-${month}-01`;
+                }
+
                 const dmyMatch = cleanStr.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
                 if (dmyMatch) {
                     const [_, day, month, year] = dmyMatch;
