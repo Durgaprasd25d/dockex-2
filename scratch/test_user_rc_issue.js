@@ -1,29 +1,6 @@
 const parser = require("../server/services/parser");
 
-const rawText = `
-Vehicle Class: GOODS CARRIER (HGV)
-Regn. Number: OD05BE1209
-Maker's Name: TATA MOTORS LTD
-Model Name: TATA LPT 4825
-Owner Name: GARG LOGISTICS
-Engine No: ISBE5123456
-Chassis No: MAT12345678901234
-Colour: / Body Type:
-MAROON ORANGE / TRUCK OPEN
-Seating(in all) Standing I Sleeper Capacity
-2 / 0 / 0
-Unladen /Laden /Gross Combination Weight (Kg)
-13880 / 47500 / 0
-Cubic Cap. / Horse Power (BHPIKw) | Wheel Base(mm)
-6702.00 / 249.24 / 6730
-Financier:
-TATA MOTORS FINANCE LIMITED
-Month-Year of Mfg: 07-2021
-No of Cylinders: 6
-No of Axles: 5
-Registration Authority: CUTTACK RTO
-ABCDE1234F
-`;
+const rawText = "Ti UE ERE SECRET fis 11\r\n\r\nalll VE po\r\n\r\nWw\r\n\r\ni : Hi\r\n\r\n; QO) Vehicle Class: GOODS CARRIER (HGV) 3\r\n\r\ni i\r\n\r\n#4 Regn. Number Maker's Name: ui\r\n\r\n/// ODOSBE1209 TATA MOTORS LTD i\r\n\r\ni 5 . \\ i\r\n\r\ni RS Modol Name: 7\r\nOza PI [5] TATA LPT 4825 BSVI 10X2 i\r\nMGA” = INES Colour: 1 Body Type: 5\r\n\r\nji: HY 3 MAROON ORANGE / TRUCK OPEN\r\n\r\nHY a ix¥{ Seating(in all) Standing I Sleeper Capacity\r\n\r\nHi Le, 3 2 0 io zl E\r\n\r\nce AND a7 Unladen /Laden /Gross Combination Weight (Kg) o\r\n\r\ni RR NLAY ass sa7s00 [0 £\r\n\r\ni [x , 3% 4 Cubic Cap. / Horse Power (BHPIKw) | Wheel Base(mm) ©\r\n\r\nTaf Se, ; Bo 6702.00 1249.24 16730\r\n\r\n5 [E] YL EEE Financier:\r\n\r\ni 1 Wot aur oF mig, TATA MOTORS FINANCE LIMITED\r\n\r\nit 07-2021 g\r\n\r\nid Registration Authority\r\nNocrOindes 8 CUTTACK RTO\r\no\r\n";
 
 const result = parser.extractRC(rawText);
 console.log(JSON.stringify(result, null, 2));

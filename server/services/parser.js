@@ -215,9 +215,12 @@ exports.extractRC = (text) => {
     const makerHeaderIdx = lines.findIndex(l => /Maker/i.test(l));
     if (makerHeaderIdx !== -1) {
         let val = "";
-        const sameLine = lines[makerHeaderIdx].replace(/Maker's\s*Name|Maker/gi, '').replace(/^[:\-\|\s]+/, '').trim();
-        if (sameLine && sameLine.length >= 3) {
-            val = sameLine;
+        const lineText = lines[makerHeaderIdx];
+        const matchIdx = lineText.toLowerCase().indexOf("maker");
+        const rightSide = lineText.substring(matchIdx + 5).replace(/^'s\s*Name|Name/gi, '').replace(/^[:\-\|\s]+/, '').trim();
+        
+        if (rightSide && rightSide.length >= 3 && !/Regn|Number|Model/i.test(rightSide)) {
+            val = rightSide;
         } else if (lines[makerHeaderIdx + 1]) {
             val = lines[makerHeaderIdx + 1];
         }
@@ -235,9 +238,12 @@ exports.extractRC = (text) => {
     const modelHeaderIdx = lines.findIndex(l => /Mod[eo]l/i.test(l));
     if (modelHeaderIdx !== -1) {
         let val = "";
-        const sameLine = lines[modelHeaderIdx].replace(/Model\s*Name|Model|Mod[eo]l/gi, '').replace(/^[:\-\|\s]+/, '').trim();
-        if (sameLine && sameLine.length >= 3) {
-            val = sameLine;
+        const lineText = lines[modelHeaderIdx];
+        const matchIdx = lineText.toLowerCase().search(/mod[eo]l/i);
+        const rightSide = lineText.substring(matchIdx + 5).replace(/^\s*Name/gi, '').replace(/^[:\-\|\s]+/, '').trim();
+        
+        if (rightSide && rightSide.length >= 3 && !/Maker|Colour|Body/i.test(rightSide)) {
+            val = rightSide;
         } else if (lines[modelHeaderIdx + 1]) {
             val = lines[modelHeaderIdx + 1];
         }
