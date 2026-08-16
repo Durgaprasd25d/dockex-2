@@ -25,20 +25,27 @@ function RegisterVehicleForm({ data, onClose }) {
         model_name: data.model_name || "",
         colour: data.colour || "",
         body_type: data.body_type || "",
-        seating: data.seating_standing_sleeper_capacity?.seating || "",
-        standing: data.seating_standing_sleeper_capacity?.standing || "",
-        sleeper: data.seating_standing_sleeper_capacity?.sleeper || "",
-        unladen_kg: data.weight?.unladen_kg || "",
-        laden_kg: data.weight?.laden_kg || "",
-        gross_combination_weight_kg: data.weight?.gross_combination_weight_kg || "",
-        cubic_capacity: data.cubic_capacity_horse_power_wheel_base?.cubic_capacity || "",
-        horse_power: data.cubic_capacity_horse_power_wheel_base?.horse_power || "",
-        wheel_base_mm: data.cubic_capacity_horse_power_wheel_base?.wheel_base_mm || "",
+        seating: data.seating || "",
+        standing: data.standing || "",
+        sleeper: data.sleeper || "",
+        unladen_kg: data.unladen_kg || "",
+        laden_kg: data.laden_kg || "",
+        gross_combination_weight_kg: data.gross_combination_weight_kg || "",
+        cubic_capacity: data.cubic_capacity || "",
+        horse_power: data.horse_power || "",
+        wheel_base_mm: data.wheel_base_mm || "",
         financier: data.financier || "",
         month_year_of_manufacture: data.month_year_of_manufacture || "",
         number_of_cylinders: data.number_of_cylinders || "",
         number_of_axles: data.number_of_axles || "",
         registration_authority: data.registration_authority || "",
+        
+        // Added fields
+        owner_name: data.owner_name || "",
+        engine_number: data.engine_number || "",
+        chassis_number: data.chassis_number || "",
+        owner_pan_number: data.owner_pan_number || "",
+        
         latitude: "",
         longitude: ""
     });
@@ -180,6 +187,12 @@ function RegisterVehicleForm({ data, onClose }) {
             bodyFormData.append("no_of_axle", formData.number_of_axles || "0");
             bodyFormData.append("registration_at", formData.registration_authority);
 
+            // Added fields
+            bodyFormData.append("engine_number", formData.engine_number.trim());
+            bodyFormData.append("chassis_number", formData.chassis_number.trim());
+            bodyFormData.append("owner_name", formData.owner_name.trim() || "GARG LOGISTICS");
+            bodyFormData.append("owner_pan_number", formData.owner_pan_number.trim() || "ABCDE1234F");
+
             // Derive number of wheels from axles
             let numberOfWheels = "10";
             const axles = parseInt(formData.number_of_axles);
@@ -194,8 +207,6 @@ function RegisterVehicleForm({ data, onClose }) {
             bodyFormData.append("fuel_type", "diesel");
 
             // Static mandatory fields required for user context validation
-            bodyFormData.append("owner_name", "GARG LOGISTICS");
-            bodyFormData.append("owner_pan_number", "ABCDE1234F");
             bodyFormData.append("owner_contact", "9658947277");
 
             // Geolocation
@@ -337,6 +348,60 @@ function RegisterVehicleForm({ data, onClose }) {
                                 value={formData.body_type}
                                 onChange={handleChange}
                                 placeholder="e.g. TRUCK OPEN"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                            <label className="field-label-modal">Engine Number</label>
+                            <input
+                                type="text"
+                                name="engine_number"
+                                className="field-input-modal"
+                                value={formData.engine_number}
+                                onChange={handleChange}
+                                placeholder="e.g. ISBE5123456"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                            <label className="field-label-modal">Chassis Number</label>
+                            <input
+                                type="text"
+                                name="chassis_number"
+                                className="field-input-modal"
+                                value={formData.chassis_number}
+                                onChange={handleChange}
+                                placeholder="e.g. MAT12345678901234"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-section-title">
+                        <FiSettings /> <span>Owner Details</span>
+                    </div>
+
+                    <div className="row g-3 mb-4">
+                        <div className="col-12 col-md-6">
+                            <label className="field-label-modal">Vehicle Owner Name</label>
+                            <input
+                                type="text"
+                                name="owner_name"
+                                className="field-input-modal"
+                                value={formData.owner_name}
+                                onChange={handleChange}
+                                placeholder="e.g. GARG LOGISTICS"
+                            />
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                            <label className="field-label-modal">Owner PAN Number (Optional)</label>
+                            <input
+                                type="text"
+                                name="owner_pan_number"
+                                className="field-input-modal"
+                                value={formData.owner_pan_number}
+                                onChange={handleChange}
+                                placeholder="e.g. ABCDE1234F"
                             />
                         </div>
                     </div>

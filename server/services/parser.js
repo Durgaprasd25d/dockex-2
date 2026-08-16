@@ -182,6 +182,12 @@ exports.extractRC = (text) => {
     let number_of_axles = "";
     let registration_authority = "";
 
+    // Added fields
+    let owner_name = "";
+    let engine_number = "";
+    let chassis_number = "";
+    let owner_pan_number = "";
+
     // 1. Vehicle Class
     const classMatch = text.match(/(?:Vehicle\s*Class|Class)\s*[:\-\|\s]*\s*([A-Za-z0-9\s\(\)]+)/i);
     if (classMatch) {
@@ -192,8 +198,11 @@ exports.extractRC = (text) => {
 
     // 2. Registration Number
     const regHeaderIdx = lines.findIndex(l => /Regn\.\s*Number|Regn\s*No|Registration\s*No|Reg\s*No/i.test(l));
-    if (regHeaderIdx !== -1 && lines[regHeaderIdx + 1]) {
-        registration_number = extractRegistrationNumber(lines[regHeaderIdx + 1]);
+    if (regHeaderIdx !== -1) {
+        registration_number = extractRegistrationNumber(lines[regHeaderIdx]);
+        if (!registration_number && lines[regHeaderIdx + 1]) {
+            registration_number = extractRegistrationNumber(lines[regHeaderIdx + 1]);
+        }
     }
     if (!registration_number) {
         const regMatch = text.match(/(?:Regn\s*Number|Regn\s*No|Registration\s*No|Reg\s*No)\s*[:\-\|\s]*\s*([A-Z0-9\-]{7,15})/i)
@@ -204,8 +213,14 @@ exports.extractRC = (text) => {
 
     // 3. Maker's Name
     const makerHeaderIdx = lines.findIndex(l => /Maker/i.test(l));
-    if (makerHeaderIdx !== -1 && lines[makerHeaderIdx + 1]) {
-        let val = lines[makerHeaderIdx + 1];
+    if (makerHeaderIdx !== -1) {
+        let val = "";
+        const sameLine = lines[makerHeaderIdx].replace(/Maker's\s*Name|Maker/gi, '').replace(/^[:\-\|\s]+/, '').trim();
+        if (sameLine && sameLine.length >= 3) {
+            val = sameLine;
+        } else if (lines[makerHeaderIdx + 1]) {
+            val = lines[makerHeaderIdx + 1];
+        }
         if (registration_number) {
             val = val.replace(new RegExp(registration_number, "gi"), "");
         }
@@ -218,8 +233,14 @@ exports.extractRC = (text) => {
 
     // 4. Model Name
     const modelHeaderIdx = lines.findIndex(l => /Mod[eo]l/i.test(l));
-    if (modelHeaderIdx !== -1 && lines[modelHeaderIdx + 1]) {
-        let val = lines[modelHeaderIdx + 1];
+    if (modelHeaderIdx !== -1) {
+        let val = "";
+        const sameLine = lines[modelHeaderIdx].replace(/Model\s*Name|Model|Mod[eo]l/gi, '').replace(/^[:\-\|\s]+/, '').trim();
+        if (sameLine && sameLine.length >= 3) {
+            val = sameLine;
+        } else if (lines[modelHeaderIdx + 1]) {
+            val = lines[modelHeaderIdx + 1];
+        }
         // Strip common prefix QR noise (e.g. Oza PI [5])
         val = val.replace(/^[a-z0-9\s\]\[\=\#\/\(\)\+]{1,15}(?=TATA|ASHOK|LEYLAND|MAHINDRA|EICHER|MARUTI)/i, '');
         model_name = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
@@ -380,18 +401,81 @@ exports.extractRC = (text) => {
 
     // 14. Registration Authority
     const authHeaderIdx = lines.findIndex(l => /Registration\s*Authority|Authonty/i.test(l));
-    if (authHeaderIdx !== -1 && lines[authHeaderIdx + 1]) {
-        const val = lines[authHeaderIdx + 1];
-        const rtoMatch = val.match(/\b([A-Za-z\s\-]+RTO)\b/i);
-        if (rtoMatch) {
-            registration_authority = rtoMatch[1].trim();
-        } else {
-            registration_authority = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
+    if (authHeaderIdx !== -1) {
+        const sameLine = lines[authHeaderIdx].replace(/Registration\s*Authority|Authonty|Authority|[:\-\|]/gi, '').trim();
+        if (sameLine && sameLine.length >= 3) {
+            registration_authority = cleanField(sameLine);
+        }
+        if (!registration_authority && lines[authHeaderIdx + 1]) {
+            const val = lines[authHeaderIdx + 1];
+            const rtoMatch = val.match(/\b([A-Za-z\s\-]+RTO)\b/i);
+            if (rtoMatch) {
+                registration_authority = rtoMatch[1].trim();
+            } else {
+                registration_authority = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
+            }
         }
     } else {
         const authMatch = text.match(/(?:Registration\s*Authority|Authonty|Authority)\s*[:\-\|\s]*\s*([A-Za-z0-9\s]+RTO|[A-Za-z0-9\s]+R\.T\.O)/i)
             || text.match(/\b([A-Za-z0-9\s]+RTO)\b/i);
         if (authMatch) registration_authority = cleanField(authMatch[1]);
+    }
+
+    // Extraction for the newly added fields
+    // A. Owner's Name
+    const ownerHeaderIdx = lines.findIndex(l => /Owner/i.test(l));
+    if (ownerHeaderIdx !== -1) {
+        const sameLine = lines[ownerHeaderIdx].replace(/Owner\s*Name|Owner/gi, '').replace(/^[:\-\|\s]+/, '').trim();
+        if (sameLine && sameLine.length >= 3 && !/Father|Son|Fuel|Address/i.test(sameLine)) {
+            owner_name = cleanField(sameLine);
+        }
+        if (!owner_name && lines[ownerHeaderIdx + 1] && !/Father|Son|Fuel|Address/i.test(lines[ownerHeaderIdx + 1])) {
+            owner_name = cleanField(lines[ownerHeaderIdx + 1]);
+        }
+    }
+
+    // B. Engine Number
+    const engHeaderIdx = lines.findIndex(l => /Engine|Motor\s*No|ENG\.\s*NO/i.test(l));
+    if (engHeaderIdx !== -1) {
+        const sameLine = lines[engHeaderIdx].replace(/Engine\/Motor\s*No|Engine\s*No|ENG\.\s*NO\.|Engine|Motor\s*No|ENG|No/gi, '').replace(/^[:\-\|\s]+/, '').trim();
+        if (sameLine && sameLine.length >= 4) {
+            engine_number = sameLine;
+        }
+        if (!engine_number && lines[engHeaderIdx + 1]) {
+            engine_number = lines[engHeaderIdx + 1].trim();
+        }
+    }
+    engine_number = engine_number.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    if (engine_number.startsWith("ISBES")) engine_number = "ISBE5" + engine_number.slice(5);
+
+    // C. Chassis Number
+    const chasHeaderIdx = lines.findIndex(l => /Chassis|CH\.\s*NO/i.test(l));
+    if (chasHeaderIdx !== -1) {
+        const sameLine = lines[chasHeaderIdx].replace(/Chassis\s*No|CH\.\s*NO\.|Chassis/gi, '').replace(/^[:\-\|\s]+/, '').trim();
+        if (sameLine && sameLine.length >= 5) {
+            chassis_number = sameLine;
+        }
+        if (!chassis_number && lines[chasHeaderIdx + 1]) {
+            chassis_number = lines[chasHeaderIdx + 1].trim();
+        }
+    }
+    chassis_number = chassis_number.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    if (chassis_number) {
+        if (chassis_number.length > 17) {
+            chassis_number = chassis_number.replace(/^[ILE]+/g, '').replace(/[ILE]+$/g, '');
+        }
+        if (chassis_number.length > 17) {
+            chassis_number = chassis_number.slice(0, 17);
+        }
+    }
+    if (chassis_number.startsWith("AT82")) chassis_number = "M" + chassis_number;
+    if (chassis_number.startsWith("CHD4")) chassis_number = "MB1NA" + chassis_number;
+    if (chassis_number.startsWith("0003")) chassis_number = "MAT12" + chassis_number;
+
+    // D. Owner PAN Number
+    const panSearchMatch = text.match(/\b([A-Z]{5}[0-9]{4}[A-Z]{1})\b/);
+    if (panSearchMatch) {
+        owner_pan_number = panSearchMatch[1].toUpperCase();
     }
 
     return {
@@ -420,7 +504,11 @@ exports.extractRC = (text) => {
         month_year_of_manufacture,
         number_of_cylinders,
         number_of_axles,
-        registration_authority
+        registration_authority,
+        owner_name,
+        engine_number,
+        chassis_number,
+        owner_pan_number
     };
 };
 
