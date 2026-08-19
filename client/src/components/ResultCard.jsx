@@ -10,41 +10,22 @@ const LABEL_MAP = {
     panNumber: "PAN Card Number",
     name: "Full Name",
     father: "Father / Guardian Name",
-    owner: "Vehicle Owner Name",
     dob: "Date of Birth",
     blood: "Blood Group",
-    engine: "Engine Number",
-    chassis: "Chassis Number",
     gender: "Gender",
     issueDate: "Issue Date",
     validityNt: "Validity (NT)",
     validityTr: "Validity (TR)",
     issuingAuthority: "Issuing Authority",
-    registrationDate: "Registration Date",
-    registrationValidity: "Registration Validity",
-    fitnessValidity: "Fitness Validity",
     
-    // Flattened RC Schema Fields
-    vehicle_class: "Vehicle Class",
+    // Flat RC Schema Fields (ONLY the 7 allowed fields)
     registration_number: "Registration Number",
-    maker_name: "Maker Name",
-    model_name: "Model Name",
-    colour: "Colour",
-    body_type: "Body Type",
-    seating: "Seating Capacity",
-    standing: "Standing Capacity",
-    sleeper: "Sleeper Capacity",
-    unladen_kg: "Unladen Weight (Kg)",
-    laden_kg: "Laden Weight (Kg)",
-    gross_combination_weight_kg: "Gross Combination Weight (Kg)",
-    cubic_capacity: "Cubic Capacity (CC)",
-    horse_power: "Horse Power (BHP)",
-    wheel_base_mm: "Wheel Base (mm)",
-    financier: "Financier",
-    month_year_of_manufacture: "Month-Year of Mfg.",
-    number_of_cylinders: "Number of Cylinders",
-    number_of_axles: "Number of Axles",
-    registration_authority: "Registration Authority"
+    owner_name: "Vehicle Owner Name",
+    owner_pan_number: "Owner PAN Number",
+    engine_number: "Engine Number",
+    chassis_number: "Chassis Number",
+    vehicle_class: "Vehicle Class",
+    number_of_wheels: "Number of Wheels"
 };
 
 function ResultCard({ data, text, docType }) {
@@ -57,18 +38,26 @@ function ResultCard({ data, text, docType }) {
 
     if (!data) return null;
 
-    // Helper to dynamically flatten any nested properties (specifically RC grouped fields)
+    // Helper to flatten nested properties and filter out non-supported fields if RC
     const getFlattenedData = (rawObj) => {
         if (!rawObj) return {};
         const flat = {};
+        
+        // Check if this is an RC document
+        const isRC = rawObj.registration_number !== undefined || docType === "Registration Certificate";
+
         Object.keys(rawObj).forEach(key => {
             const val = rawObj[key];
             if (val && typeof val === "object" && !Array.isArray(val)) {
                 Object.keys(val).forEach(subKey => {
-                    flat[subKey] = val[subKey];
+                    if (!isRC || LABEL_MAP[subKey] !== undefined) {
+                        flat[subKey] = val[subKey];
+                    }
                 });
             } else {
-                flat[key] = val;
+                if (!isRC || LABEL_MAP[key] !== undefined) {
+                    flat[key] = val;
+                }
             }
         });
         return flat;
@@ -89,39 +78,17 @@ function ResultCard({ data, text, docType }) {
     };
 
     const handleCopyAll = () => {
-        // Construct the full object containing edits
         const fullData = {};
-        
-        // Reconstruct nested structure if RC, or flat if other types
-        if (data.seating_standing_sleeper_capacity || data.weight || data.cubic_capacity_horse_power_wheel_base) {
-            fullData.vehicle_class = formData.vehicle_class !== undefined ? formData.vehicle_class : (data.vehicle_class || "");
+        const isRC = data.registration_number !== undefined || docType === "Registration Certificate";
+
+        if (isRC) {
             fullData.registration_number = formData.registration_number !== undefined ? formData.registration_number : (data.registration_number || "");
-            fullData.maker_name = formData.maker_name !== undefined ? formData.maker_name : (data.maker_name || "");
-            fullData.model_name = formData.model_name !== undefined ? formData.model_name : (data.model_name || "");
-            fullData.colour = formData.colour !== undefined ? formData.colour : (data.colour || "");
-            fullData.body_type = formData.body_type !== undefined ? formData.body_type : (data.body_type || "");
-            
-            fullData.seating_standing_sleeper_capacity = {
-                seating: formData.seating !== undefined ? formData.seating : (data.seating_standing_sleeper_capacity?.seating || ""),
-                standing: formData.standing !== undefined ? formData.standing : (data.seating_standing_sleeper_capacity?.standing || ""),
-                sleeper: formData.sleeper !== undefined ? formData.sleeper : (data.seating_standing_sleeper_capacity?.sleeper || "")
-            };
-            fullData.weight = {
-                unladen_kg: formData.unladen_kg !== undefined ? formData.unladen_kg : (data.weight?.unladen_kg || ""),
-                laden_kg: formData.laden_kg !== undefined ? formData.laden_kg : (data.weight?.laden_kg || ""),
-                gross_combination_weight_kg: formData.gross_combination_weight_kg !== undefined ? formData.gross_combination_weight_kg : (data.weight?.gross_combination_weight_kg || "")
-            };
-            fullData.cubic_capacity_horse_power_wheel_base = {
-                cubic_capacity: formData.cubic_capacity !== undefined ? formData.cubic_capacity : (data.cubic_capacity_horse_power_wheel_base?.cubic_capacity || ""),
-                horse_power: formData.horse_power !== undefined ? formData.horse_power : (data.cubic_capacity_horse_power_wheel_base?.horse_power || ""),
-                wheel_base_mm: formData.wheel_base_mm !== undefined ? formData.wheel_base_mm : (data.cubic_capacity_horse_power_wheel_base?.wheel_base_mm || "")
-            };
-            
-            fullData.financier = formData.financier !== undefined ? formData.financier : (data.financier || "");
-            fullData.month_year_of_manufacture = formData.month_year_of_manufacture !== undefined ? formData.month_year_of_manufacture : (data.month_year_of_manufacture || "");
-            fullData.number_of_cylinders = formData.number_of_cylinders !== undefined ? formData.number_of_cylinders : (data.number_of_cylinders || "");
-            fullData.number_of_axles = formData.number_of_axles !== undefined ? formData.number_of_axles : (data.number_of_axles || "");
-            fullData.registration_authority = formData.registration_authority !== undefined ? formData.registration_authority : (data.registration_authority || "");
+            fullData.owner_name = formData.owner_name !== undefined ? formData.owner_name : (data.owner_name || "");
+            fullData.owner_pan_number = formData.owner_pan_number !== undefined ? formData.owner_pan_number : (data.owner_pan_number || "");
+            fullData.engine_number = formData.engine_number !== undefined ? formData.engine_number : (data.engine_number || "");
+            fullData.chassis_number = formData.chassis_number !== undefined ? formData.chassis_number : (data.chassis_number || "");
+            fullData.vehicle_class = formData.vehicle_class !== undefined ? formData.vehicle_class : (data.vehicle_class || "");
+            fullData.number_of_wheels = formData.number_of_wheels !== undefined ? formData.number_of_wheels : (data.number_of_wheels || "");
         } else {
             Object.assign(fullData, data, formData);
         }
@@ -151,141 +118,114 @@ function ResultCard({ data, text, docType }) {
                             {docType}
                         </span>
                     )}
-                    <span className="badge-tag badge-green">
-                        ✓ Verified
-                    </span>
+                    <button
+                        onClick={handleCopyAll}
+                        className="btn-action-outline d-flex align-items-center gap-2"
+                        title="Copy all details to clipboard"
+                    >
+                        {copiedJson ? <FiCheck className="text-success" /> : <FiCode />}
+                        <span>{copiedJson ? "Copied JSON" : "Copy JSON"}</span>
+                    </button>
                 </div>
             </div>
 
-            <div className="p-4">
+            <div className="card-body-clean">
                 <div className="row g-3">
                     {Object.keys(flatData).map((key) => {
-                        const val = formData[key] !== undefined ? formData[key] : (flatData[key] || "");
-                        const isCopied = copiedKey === key;
+                        const originalValue = flatData[key];
+                        const currentValue = formData[key] !== undefined ? formData[key] : originalValue;
+
                         return (
-                            <div className="col-12 col-md-6" key={key}>
-                                <div className="result-field-group">
-                                    <label className="field-label">{formatLabel(key)}</label>
-                                    <div className="field-input-wrapper">
-                                        <input
-                                            className="field-input"
-                                            value={val}
-                                            onChange={(e) => handleInputChange(key, e.target.value)}
-                                            placeholder={`No ${formatLabel(key).toLowerCase()} detected`}
-                                        />
+                            <div key={key} className="col-12 col-md-6">
+                                <div className="result-item-card">
+                                    <div className="d-flex justify-content-between align-items-center mb-1">
+                                        <span className="field-label-clean">{formatLabel(key)}</span>
                                         <button
-                                            type="button"
-                                            className={`copy-mini-btn ${isCopied ? "copied" : ""}`}
-                                            onClick={() => handleCopy(key, val)}
-                                            title="Copy field value"
+                                            onClick={() => handleCopy(key, currentValue)}
+                                            className="copy-field-btn"
+                                            title={`Copy ${formatLabel(key)}`}
                                         >
-                                            {isCopied ? (
-                                                <>
-                                                    <FiCheck style={{ fontSize: '12px' }} /> Copied
-                                                </>
+                                            {copiedKey === key ? (
+                                                <FiCheck className="text-success" />
                                             ) : (
-                                                <>
-                                                    <FiCopy style={{ fontSize: '12px' }} /> Copy
-                                                </>
+                                                <FiCopy />
                                             )}
                                         </button>
                                     </div>
+                                    <input
+                                        type="text"
+                                        className="field-value-input"
+                                        value={currentValue || ""}
+                                        onChange={(e) => handleInputChange(key, e.target.value)}
+                                    />
                                 </div>
                             </div>
                         );
                     })}
                 </div>
 
-                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4 pt-3 border-top border-secondary border-opacity-25">
-                    <div className="d-flex align-items-center gap-2">
+                <div className="action-row-footer mt-4 pt-3 d-flex justify-content-between align-items-center gap-3">
+                    <button
+                        onClick={() => setShowRawText(!showRawText)}
+                        className="btn-action-text d-flex align-items-center gap-2"
+                    >
+                        <FiTerminal />
+                        <span>{showRawText ? "Hide Raw OCR Log" : "Show Raw OCR Log"}</span>
+                        {showRawText ? <FiChevronUp /> : <FiChevronDown />}
+                    </button>
+
+                    {docType === "Driving Licence" && (
                         <button
-                            type="button"
-                            className="btn btn-sm btn-outline-light d-flex align-items-center gap-2"
-                            onClick={handleCopyAll}
-                            style={{ borderRadius: '8px', fontSize: '13px', padding: '6px 14px' }}
+                            onClick={() => setShowRegisterForm(true)}
+                            className="btn btn-primary px-4 py-2 d-flex align-items-center gap-2"
+                            style={{ borderRadius: "8px", fontWeight: "500" }}
                         >
-                            {copiedJson ? (
-                                <>
-                                    <FiCheck className="text-success" />
-                                    <span>Copied JSON</span>
-                                </>
-                            ) : (
-                                <>
-                                    <FiCode />
-                                    <span>Copy All JSON</span>
-                                </>
-                            )}
+                            <span>Verify & Register Driver</span>
                         </button>
+                    )}
 
-                        {(docType === "Driving Licence" || docType === "DL") && (
-                            <button
-                                type="button"
-                                className="btn btn-sm btn-primary d-flex align-items-center gap-2"
-                                onClick={() => setShowRegisterForm(true)}
-                                style={{ borderRadius: '8px', fontSize: '13px', padding: '6px 14px' }}
-                            >
-                                <FiTruck style={{ fontSize: '14px' }} />
-                                <span>Register Driver in TMS</span>
-                            </button>
-                        )}
-
-                        {(docType === "Registration Certificate" || docType === "Vehicle RC" || docType === "RC") && (
-                            <button
-                                type="button"
-                                className="btn btn-sm btn-primary d-flex align-items-center gap-2"
-                                onClick={() => setShowVehicleForm(true)}
-                                style={{ borderRadius: '8px', fontSize: '13px', padding: '6px 14px' }}
-                            >
-                                <FiTruck style={{ fontSize: '14px' }} />
-                                <span>Register Vehicle in TMS</span>
-                            </button>
-                        )}
-                    </div>
-
-                    {text && (
+                    {(docType === "Registration Certificate" || docType === "RC") && (
                         <button
-                            type="button"
-                            className="btn btn-sm btn-link text-decoration-none text-muted p-0 d-flex align-items-center gap-1"
-                            onClick={() => setShowRawText(!showRawText)}
-                            style={{ fontSize: '13px' }}
+                            onClick={() => setShowVehicleForm(true)}
+                            className="btn btn-primary px-4 py-2 d-flex align-items-center gap-2"
+                            style={{ borderRadius: "8px", fontWeight: "500" }}
                         >
-                            <FiTerminal style={{ fontSize: '14px' }} />
-                            <span>{showRawText ? "Hide Raw OCR Text" : "View Raw OCR Text"}</span>
-                            {showRawText ? <FiChevronUp /> : <FiChevronDown />}
+                            <FiTruck />
+                            <span>Verify & Register Vehicle</span>
                         </button>
                     )}
                 </div>
 
-                {text && showRawText && (
-                    <div className="mt-3">
-                        <div className="d-flex align-items-center justify-content-between mb-2">
-                            <span className="field-label mb-0">Raw Tesseract Output</span>
+                {showRawText && (
+                    <div className="raw-text-panel mt-3">
+                        <div className="d-flex justify-content-between align-items-center mb-2 px-3 py-2 border-bottom border-secondary-subtle">
+                            <span className="raw-panel-title">Raw Document Text Output</span>
                             <button
-                                type="button"
-                                className="copy-mini-btn"
                                 onClick={() => {
                                     navigator.clipboard.writeText(text);
-                                    alert("Raw OCR text copied!");
+                                    setCopiedKey("raw");
+                                    setTimeout(() => setCopiedKey(null), 1000);
                                 }}
+                                className="copy-field-btn"
                             >
-                                <FiCopy style={{ fontSize: '12px' }} /> Copy Raw Text
+                                {copiedKey === "raw" ? <FiCheck className="text-success" /> : <FiCopy />}
                             </button>
                         </div>
-                        <div className="raw-text-box">
-                            {text}
-                        </div>
+                        <pre className="raw-text-content">{text}</pre>
                     </div>
                 )}
             </div>
+
             {showRegisterForm && (
                 <RegisterDriverForm
-                    data={{ ...flatData, ...formData }}
+                    data={flatData}
                     onClose={() => setShowRegisterForm(false)}
                 />
             )}
+
             {showVehicleForm && (
                 <RegisterVehicleForm
-                    data={{ ...flatData, ...formData }}
+                    data={flatData}
                     onClose={() => setShowVehicleForm(false)}
                 />
             )}

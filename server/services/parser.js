@@ -159,28 +159,6 @@ exports.extractRC = (text) => {
     // Initial values
     let vehicle_class = "";
     let registration_number = "";
-    let maker_name = "";
-    let model_name = "";
-    let colour = "";
-    let body_type = "";
-    
-    let seating = "";
-    let standing = "";
-    let sleeper = "";
-
-    let unladen_kg = "";
-    let laden_kg = "";
-    let gross_combination_weight_kg = "";
-
-    let cubic_capacity = "";
-    let horse_power = "";
-    let wheel_base_mm = "";
-
-    let financier = "";
-    let month_year_of_manufacture = "";
-    let number_of_cylinders = "";
-    let number_of_axles = "";
-    let registration_authority = "";
 
     // Added fields
     let owner_name = "";
@@ -211,223 +189,7 @@ exports.extractRC = (text) => {
         if (regMatch) registration_number = extractRegistrationNumber(regMatch[1]) || regMatch[1].replace(/[^A-Z0-9]/gi, '').toUpperCase();
     }
 
-    // 3. Maker's Name
-    const makerHeaderIdx = lines.findIndex(l => /Maker/i.test(l));
-    if (makerHeaderIdx !== -1) {
-        let val = "";
-        const lineText = lines[makerHeaderIdx];
-        const matchIdx = lineText.toLowerCase().indexOf("maker");
-        const rightSide = lineText.substring(matchIdx + 5).replace(/^'s\s*Name|Name/gi, '').replace(/^[:\-\|\s]+/, '').trim();
-        
-        if (rightSide && rightSide.length >= 3 && !/Regn|Number|Model/i.test(rightSide)) {
-            val = rightSide;
-        } else if (lines[makerHeaderIdx + 1]) {
-            val = lines[makerHeaderIdx + 1];
-        }
-        if (registration_number) {
-            val = val.replace(new RegExp(registration_number, "gi"), "");
-        }
-        maker_name = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
-        maker_name = maker_name.replace(/\s+[a-zA-Z]$/, '').trim(); // Strip trailing single-character noise
-    } else {
-        const makerMatch = text.match(/(?:Maker's\s*Name|Maker|REF\.MFG)\s*[:\-\|\s]*\s*([A-Za-z0-9\s]+)/i);
-        if (makerMatch) maker_name = cleanField(makerMatch[1]);
-    }
-
-    // 4. Model Name
-    const modelHeaderIdx = lines.findIndex(l => /Mod[eo]l/i.test(l));
-    if (modelHeaderIdx !== -1) {
-        let val = "";
-        const lineText = lines[modelHeaderIdx];
-        const matchIdx = lineText.toLowerCase().search(/mod[eo]l/i);
-        const rightSide = lineText.substring(matchIdx + 5).replace(/^\s*Name/gi, '').replace(/^[:\-\|\s]+/, '').trim();
-        
-        if (rightSide && rightSide.length >= 3 && !/Maker|Colour|Body/i.test(rightSide)) {
-            val = rightSide;
-        } else if (lines[modelHeaderIdx + 1]) {
-            val = lines[modelHeaderIdx + 1];
-        }
-        // Strip common prefix QR noise (e.g. Oza PI [5])
-        val = val.replace(/^[a-z0-9\s\]\[\=\#\/\(\)\+]{1,15}(?=TATA|ASHOK|LEYLAND|MAHINDRA|EICHER|MARUTI)/i, '');
-        model_name = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
-        model_name = model_name.replace(/\s+[a-zA-Z]$/, '').trim(); // Strip trailing single-character noise
-    } else {
-        const modelMatch = text.match(/(?:Model\s*Name|Model)\s*[:\-\|\s]*\s*([A-Za-z0-9\s\.\-]+)/i);
-        if (modelMatch) model_name = cleanField(modelMatch[1]);
-    }
-
-    // 5 & 6. Colour & Body Type split row matching
-    const colorHeaderIdx = lines.findIndex(l => /Col/i.test(l) && /Body\s*Type/i.test(l));
-    if (colorHeaderIdx !== -1 && lines[colorHeaderIdx + 1]) {
-        const parts = lines[colorHeaderIdx + 1].split(/\s*[\/\\]\s*/);
-        if (parts[0]) {
-            let val = parts[0];
-            const colorMatch = val.match(/(MAROON|ORANGE|BLUE|RED|WHITE|BLACK|YELLOW|GREEN|GREY|BROWN|SILVER|GOLD|PINK|PURPLE|MULTICOLOUR|AMBER)/i);
-            if (colorMatch) {
-                colour = val.substring(val.toLowerCase().indexOf(colorMatch[0].toLowerCase())).trim();
-            } else {
-                colour = val.replace(/^[a-z0-9\s\:\-\/\#\=\[\]\”\“\']+(?=[A-Z]{3,})/gi, '').trim();
-            }
-        }
-        if (parts[1]) {
-            let val = parts[1];
-            const bodyMatch = val.match(/(TRUCK|OPEN|TRACTOR|BUS|CAR|TROLLEY|TANKER|CONTAINER|TIPPER|CAB|CHASSIS)/i);
-            if (bodyMatch) {
-                body_type = val.substring(val.toLowerCase().indexOf(bodyMatch[0].toLowerCase())).trim();
-            } else {
-                body_type = val.replace(/^[a-z0-9\s\:\-\/\#\=\[\]\”\“\']+(?=[A-Z]{3,})/gi, '').trim();
-            }
-            body_type = body_type.replace(/\s+[a-zA-Z]$/, '').trim();
-        }
-    } else {
-        const colorMatch = text.match(/(?:Colo[ur]+|Color)\s*[:\-\|\s]*\s*([A-Za-z\s]+)(?=(?:\/|Body\s*Type|$))/i);
-        if (colorMatch) colour = cleanField(colorMatch[1]);
-
-        const bodyMatch = text.match(/(?:Body\s*Type)\s*[:\-\|\s]*\s*([A-Za-z\s]+)/i);
-        if (bodyMatch) body_type = cleanField(bodyMatch[1]);
-    }
-
-    // 7. Seating / Standing / Sleeper Capacity split row matching
-    const capHeaderIdx = lines.findIndex(l => /Seating/i.test(l) && /Standing/i.test(l));
-    if (capHeaderIdx !== -1 && lines[capHeaderIdx + 1]) {
-        let capLine = lines[capHeaderIdx + 1];
-        capLine = capLine.replace(/\bio\b/gi, '0').replace(/\bo\b/gi, '0').replace(/\bl\b/gi, '1');
-        capLine = capLine.replace(/\b[a-zA-Z]\b/g, ''); // Clear single letters
-        const validNums = capLine.match(/\b\d+\b/g);
-        if (validNums && validNums.length >= 3) {
-            const startIdx = validNums.length - 3;
-            seating = validNums[startIdx];
-            standing = validNums[startIdx + 1];
-            sleeper = validNums[startIdx + 2];
-        } else if (validNums && validNums.length === 2) {
-            seating = validNums[0];
-            standing = validNums[1];
-        } else if (validNums && validNums.length === 1) {
-            seating = validNums[0];
-        }
-    } else {
-        const seatMatch = text.match(/Seating\s*(?:\(in\s*all\))?\s*[:\-\|\s]*\s*(\d+)/i);
-        if (seatMatch) seating = seatMatch[1];
-        const standMatch = text.match(/Standing\s*[:\-\|\s]*\s*(\d+)/i);
-        if (standMatch) standing = standMatch[1];
-        const sleepMatch = text.match(/Sleeper\s*(?:Capacity)?\s*[:\-\|\s]*\s*(\d+)/i);
-        if (sleepMatch) sleeper = sleepMatch[1];
-    }
-
-    // 8. Weight split row matching
-    const weightHeaderIdx = lines.findIndex(l => /Unladen/i.test(l) && /Laden/i.test(l));
-    if (weightHeaderIdx !== -1 && lines[weightHeaderIdx + 1]) {
-        let wtLine = lines[weightHeaderIdx + 1];
-        const cleanSegments = wtLine
-            .split(/\s+/)
-            .map(s => s.replace(/^[^A-Za-z0-9]+/, '').replace(/[^A-Za-z0-9]+$/, '').trim())
-            .filter(s => s.length > 0 && s !== "i" && s !== "I" && s !== "£");
-        if (cleanSegments.length >= 3) {
-            const startIdx = cleanSegments.length - 3;
-            unladen_kg = cleanSegments[startIdx];
-            laden_kg = cleanSegments[startIdx + 1];
-            gross_combination_weight_kg = cleanSegments[startIdx + 2];
-        } else if (cleanSegments.length === 2) {
-            unladen_kg = cleanSegments[0];
-            laden_kg = cleanSegments[1];
-        } else if (cleanSegments.length === 1) {
-            unladen_kg = cleanSegments[0];
-        }
-    } else {
-        const unladenMatch = text.match(/(?:Unladen\s*Wt|Unladen\s*Weight|U\.L\.\s*Wt|UL\s*Wt|Unladen)\s*[:\-\|\s]*\s*(\d+)/i);
-        if (unladenMatch) unladen_kg = unladenMatch[1].trim();
-
-        const grossMatch = text.match(/(?:Gross\s*Wt|Gross\s*Weight|G\.V\.W|GVW|Laden)\s*[:\-\|\s]*\s*(\d+)/i);
-        if (grossMatch) laden_kg = grossMatch[1].trim();
-
-        const gcwMatch = text.match(/(?:Gross\s*Combination\s*Weight)\s*[:\-\|\s]*\s*(\d+)/i);
-        if (gcwMatch) gross_combination_weight_kg = gcwMatch[1].trim();
-    }
-
-    // 9. Cubic Capacity / Horse Power / Wheel Base split row matching
-    const ccHeaderIdx = lines.findIndex(l => /Cubic\s*Cap/i.test(l) && /Horse\s*Power/i.test(l));
-    if (ccHeaderIdx !== -1 && lines[ccHeaderIdx + 1]) {
-        let ccLine = lines[ccHeaderIdx + 1];
-        const cleanSegments = ccLine
-            .split(/\s+/)
-            .map(s => s.replace(/^[^A-Za-z0-9\.]+/, '').replace(/[^A-Za-z0-9\.]+$/, '').trim())
-            .filter(s => s.length > 0 && s !== ";" && s !== "i" && s !== "I" && s !== "©");
-        if (cleanSegments.length >= 3) {
-            const startIdx = cleanSegments.length - 3;
-            cubic_capacity = cleanSegments[startIdx];
-            horse_power = cleanSegments[startIdx + 1];
-            wheel_base_mm = cleanSegments[startIdx + 2];
-        } else if (cleanSegments.length === 2) {
-            cubic_capacity = cleanSegments[0];
-            horse_power = cleanSegments[1];
-        } else if (cleanSegments.length === 1) {
-            cubic_capacity = cleanSegments[0];
-        }
-    } else {
-        const ccMatch = text.match(/(?:Cubic\s*Cap(?:acity)?|C\.C\.|CC)\s*[:\-\|\s]*\s*([\d\.]+)/i);
-        if (ccMatch) cubic_capacity = ccMatch[1].trim();
-        const hpMatch = text.match(/(?:Horse\s*Power|BHP|B\.H\.P)\s*[:\-\|\s]*\s*([\d\.]+)/i);
-        if (hpMatch) horse_power = hpMatch[1].trim();
-        const wbMatch = text.match(/(?:Wheel\s*Base|WB)\s*[:\-\|\s]*\s*(\d+)/i);
-        if (wbMatch) wheel_base_mm = wbMatch[1].trim();
-    }
-
-    // 10. Financier
-    const finHeaderIdx = lines.findIndex(l => /Financier/i.test(l));
-    if (finHeaderIdx !== -1 && lines[finHeaderIdx + 1]) {
-        let val = lines[finHeaderIdx + 1];
-        if (val.includes(",")) {
-            val = val.split(",")[1];
-        }
-        financier = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
-    } else {
-        const financierMatch = text.match(/Financier\s*[:\-\|\s]*\s*([A-Za-z0-9\s]+(?:LIMITED|BANK|FINANCE|LTD|COOP|SERVICES))/i)
-            || text.match(/Financier\s*[:\-\|\s]*\s*([A-Za-z0-9\s]+)/i);
-        if (financierMatch) financier = cleanField(financierMatch[1]);
-    }
-
-    // 11. Month-Year of Manufacturing
-    const mfgMatch = text.match(/\b(\d{2}-\d{4})\b/) || text.match(/\b(\d{2}\/\d{4})\b/);
-    if (mfgMatch) {
-        month_year_of_manufacture = mfgMatch[1].trim();
-    } else {
-        const mfgHeaderIdx = lines.findIndex(l => /Month-Year\s*of\s*Mfg/i.test(l));
-        if (mfgHeaderIdx !== -1 && lines[mfgHeaderIdx + 1]) {
-            month_year_of_manufacture = lines[mfgHeaderIdx + 1].trim();
-        }
-    }
-
-    // 12. Number of Cylinders
-    const cylMatch = text.match(/(?:No\.\s*of\s*Cylinders?|No\s*of\s*Cylinders?|Cylinders?|NocrOindes)\s*[:\-\|\s]*\s*(\d+)/i);
-    if (cylMatch) number_of_cylinders = cylMatch[1].trim();
-
-    // 13. Number of Axles
-    const axleMatch = text.match(/(?:No\s*of\s*Axles?|No\s*of\s*Axle|Axles?)\s*[:\-\|\s]*\s*(\d+)/i);
-    if (axleMatch) number_of_axles = axleMatch[1].trim();
-
-    // 14. Registration Authority
-    const authHeaderIdx = lines.findIndex(l => /Registration\s*Authority|Authonty/i.test(l));
-    if (authHeaderIdx !== -1) {
-        const sameLine = lines[authHeaderIdx].replace(/Registration\s*Authority|Authonty|Authority|[:\-\|]/gi, '').trim();
-        if (sameLine && sameLine.length >= 3) {
-            registration_authority = cleanField(sameLine);
-        }
-        if (!registration_authority && lines[authHeaderIdx + 1]) {
-            const val = lines[authHeaderIdx + 1];
-            const rtoMatch = val.match(/\b([A-Za-z\s\-]+RTO)\b/i);
-            if (rtoMatch) {
-                registration_authority = rtoMatch[1].trim();
-            } else {
-                registration_authority = val.replace(/^[^\w\s]+/, '').replace(/[^\w\s]+$/, '').trim();
-            }
-        }
-    } else {
-        const authMatch = text.match(/(?:Registration\s*Authority|Authonty|Authority)\s*[:\-\|\s]*\s*([A-Za-z0-9\s]+RTO|[A-Za-z0-9\s]+R\.T\.O)/i)
-            || text.match(/\b([A-Za-z0-9\s]+RTO)\b/i);
-        if (authMatch) registration_authority = cleanField(authMatch[1]);
-    }
-
-    // Extraction for the newly added fields
+    // Extraction for owner, engine, chassis, pan details
     // A. Owner's Name
     const ownerHeaderIdx = lines.findIndex(l => /Owner/i.test(l));
     if (ownerHeaderIdx !== -1) {
@@ -484,37 +246,30 @@ exports.extractRC = (text) => {
         owner_pan_number = panSearchMatch[1].toUpperCase();
     }
 
+    // E. Number of Wheels (Derived dynamically from axles, or directly parsed)
+    let number_of_wheels = "10";
+    const axleMatch = text.match(/(?:No\s*of\s*Axles?|No\s*of\s*Axle|Axles?)\s*[:\-\|\s]*\s*(\d+)/i);
+    if (axleMatch) {
+        const axles = parseInt(axleMatch[1]);
+        if (axles === 2) number_of_wheels = "6";
+        else if (axles === 3) number_of_wheels = "10";
+        else if (axles === 4) number_of_wheels = "12";
+        else if (axles === 5) number_of_wheels = "10";
+        else if (axles >= 6) number_of_wheels = "12";
+    }
+    const wheelMatch = text.match(/(?:No\s*of\s*Wheels?|Wheels?)\s*[:\-\|\s]*\s*(\d+)/i);
+    if (wheelMatch) {
+        number_of_wheels = wheelMatch[1].trim();
+    }
+
     return {
-        vehicle_class,
         registration_number,
-        maker_name,
-        model_name,
-        colour,
-        body_type,
-        seating_standing_sleeper_capacity: {
-            seating,
-            standing,
-            sleeper
-        },
-        weight: {
-            unladen_kg,
-            laden_kg,
-            gross_combination_weight_kg
-        },
-        cubic_capacity_horse_power_wheel_base: {
-            cubic_capacity,
-            horse_power,
-            wheel_base_mm
-        },
-        financier,
-        month_year_of_manufacture,
-        number_of_cylinders,
-        number_of_axles,
-        registration_authority,
         owner_name,
+        owner_pan_number,
         engine_number,
         chassis_number,
-        owner_pan_number
+        vehicle_class,
+        number_of_wheels
     };
 };
 
