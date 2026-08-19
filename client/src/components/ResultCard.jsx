@@ -44,7 +44,7 @@ function ResultCard({ data, text, docType }) {
         const flat = {};
         
         // Check if this is an RC document
-        const isRC = rawObj.registration_number !== undefined || docType === "Registration Certificate";
+        const isRC = rawObj.registration_number !== undefined || docType === "Registration Certificate" || docType === "RC";
 
         Object.keys(rawObj).forEach(key => {
             const val = rawObj[key];
@@ -79,7 +79,7 @@ function ResultCard({ data, text, docType }) {
 
     const handleCopyAll = () => {
         const fullData = {};
-        const isRC = data.registration_number !== undefined || docType === "Registration Certificate";
+        const isRC = data.registration_number !== undefined || docType === "Registration Certificate" || docType === "RC";
 
         if (isRC) {
             fullData.registration_number = formData.registration_number !== undefined ? formData.registration_number : (data.registration_number || "");
@@ -129,89 +129,114 @@ function ResultCard({ data, text, docType }) {
                 </div>
             </div>
 
-            <div className="card-body-clean">
+            <div className="p-4">
                 <div className="row g-3">
                     {Object.keys(flatData).map((key) => {
                         const originalValue = flatData[key];
                         const currentValue = formData[key] !== undefined ? formData[key] : originalValue;
+                        const isCopied = copiedKey === key;
 
                         return (
-                            <div key={key} className="col-12 col-md-6">
-                                <div className="result-item-card">
-                                    <div className="d-flex justify-content-between align-items-center mb-1">
-                                        <span className="field-label-clean">{formatLabel(key)}</span>
+                            <div className="col-12 col-md-6" key={key}>
+                                <div className="result-field-group">
+                                    <label className="field-label">{formatLabel(key)}</label>
+                                    <div className="field-input-wrapper">
+                                        <input
+                                            className="field-input"
+                                            value={currentValue || ""}
+                                            onChange={(e) => handleInputChange(key, e.target.value)}
+                                            placeholder={`No ${formatLabel(key).toLowerCase()} detected`}
+                                        />
                                         <button
+                                            type="button"
+                                            className={`copy-mini-btn ${isCopied ? "copied" : ""}`}
                                             onClick={() => handleCopy(key, currentValue)}
-                                            className="copy-field-btn"
-                                            title={`Copy ${formatLabel(key)}`}
+                                            title="Copy field value"
                                         >
-                                            {copiedKey === key ? (
-                                                <FiCheck className="text-success" />
+                                            {isCopied ? (
+                                                <>
+                                                    <FiCheck style={{ fontSize: '12px' }} /> Copied
+                                                </>
                                             ) : (
-                                                <FiCopy />
+                                                <>
+                                                    <FiCopy style={{ fontSize: '12px' }} /> Copy
+                                                </>
                                             )}
                                         </button>
                                     </div>
-                                    <input
-                                        type="text"
-                                        className="field-value-input"
-                                        value={currentValue || ""}
-                                        onChange={(e) => handleInputChange(key, e.target.value)}
-                                    />
                                 </div>
                             </div>
                         );
                     })}
                 </div>
 
-                <div className="action-row-footer mt-4 pt-3 d-flex justify-content-between align-items-center gap-3">
-                    <button
-                        onClick={() => setShowRawText(!showRawText)}
-                        className="btn-action-text d-flex align-items-center gap-2"
-                    >
-                        <FiTerminal />
-                        <span>{showRawText ? "Hide Raw OCR Log" : "Show Raw OCR Log"}</span>
-                        {showRawText ? <FiChevronUp /> : <FiChevronDown />}
-                    </button>
-
-                    {docType === "Driving Licence" && (
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4 pt-3 border-top border-secondary border-opacity-25">
+                    {text && (
                         <button
-                            onClick={() => setShowRegisterForm(true)}
-                            className="btn btn-primary px-4 py-2 d-flex align-items-center gap-2"
-                            style={{ borderRadius: "8px", fontWeight: "500" }}
+                            type="button"
+                            className="btn btn-sm btn-link text-decoration-none text-muted p-0 d-flex align-items-center gap-1"
+                            onClick={() => setShowRawText(!showRawText)}
+                            style={{ fontSize: '13px' }}
                         >
-                            <span>Verify & Register Driver</span>
+                            <FiTerminal style={{ fontSize: '14px' }} />
+                            <span>{showRawText ? "Hide Raw OCR Text" : "View Raw OCR Text"}</span>
+                            {showRawText ? <FiChevronUp /> : <FiChevronDown />}
                         </button>
                     )}
 
-                    {(docType === "Registration Certificate" || docType === "RC") && (
-                        <button
-                            onClick={() => setShowVehicleForm(true)}
-                            className="btn btn-primary px-4 py-2 d-flex align-items-center gap-2"
-                            style={{ borderRadius: "8px", fontWeight: "500" }}
-                        >
-                            <FiTruck />
-                            <span>Verify & Register Vehicle</span>
-                        </button>
-                    )}
+                    <div className="d-flex align-items-center gap-2">
+                        {docType === "Driving Licence" && (
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-primary d-flex align-items-center gap-2"
+                                onClick={() => setShowRegisterForm(true)}
+                                style={{ borderRadius: '8px', fontSize: '13px', padding: '6px 14px' }}
+                            >
+                                <span>Verify & Register Driver</span>
+                            </button>
+                        )}
+
+                        {(docType === "Registration Certificate" || docType === "RC") && (
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-primary d-flex align-items-center gap-2"
+                                onClick={() => setShowVehicleForm(true)}
+                                style={{ borderRadius: '8px', fontSize: '13px', padding: '6px 14px' }}
+                            >
+                                <FiTruck style={{ fontSize: '14px' }} />
+                                <span>Verify & Register Vehicle</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                {showRawText && (
-                    <div className="raw-text-panel mt-3">
-                        <div className="d-flex justify-content-between align-items-center mb-2 px-3 py-2 border-bottom border-secondary-subtle">
-                            <span className="raw-panel-title">Raw Document Text Output</span>
+                {text && showRawText && (
+                    <div className="mt-3">
+                        <div className="d-flex align-items-center justify-content-between mb-2">
+                            <span className="field-label mb-0">Raw Tesseract Output</span>
                             <button
+                                type="button"
+                                className="copy-mini-btn"
                                 onClick={() => {
                                     navigator.clipboard.writeText(text);
                                     setCopiedKey("raw");
                                     setTimeout(() => setCopiedKey(null), 1000);
                                 }}
-                                className="copy-field-btn"
                             >
-                                {copiedKey === "raw" ? <FiCheck className="text-success" /> : <FiCopy />}
+                                {copiedKey === "raw" ? (
+                                    <>
+                                        <FiCheck style={{ fontSize: '12px' }} /> Copied
+                                    </>
+                                ) : (
+                                    <>
+                                        <FiCopy style={{ fontSize: '12px' }} /> Copy Raw Text
+                                    </>
+                                )}
                             </button>
                         </div>
-                        <pre className="raw-text-content">{text}</pre>
+                        <div className="raw-text-box">
+                            {text}
+                        </div>
                     </div>
                 )}
             </div>
