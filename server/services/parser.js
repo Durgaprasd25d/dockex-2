@@ -23,6 +23,8 @@ const cleanField = (str) => {
         }
         cleaned = words.slice(0, endIdx).join(' ').trim();
     }
+    cleaned = cleaned.replace(/^[^A-Za-z]+/, '').trim();
+    cleaned = cleaned.replace(/\s+[A-Za-z]{1,2}$/, '').trim();
     return cleaned;
 };
 
@@ -141,13 +143,19 @@ const extractRegistrationNumber = (str) => {
         const cleaned = w.replace(/[^A-Z0-9]/gi, '').toUpperCase();
         // Check standard Indian state prefix and format
         if (cleaned.length >= 7 && cleaned.length <= 11 && /^(AN|AP|AR|AS|BR|CH|CG|DN|DD|DL|GA|GJ|HR|HP|JK|JH|KA|KL|LD|MP|MH|MN|ML|MZ|NL|OD|OR|PB|PY|RJ|SK|TN|TS|TR|UP|UK|UA|WB|0D|OS|O0|OD0|0M|AO|IO)/i.test(cleaned)) {
-            return cleaned;
+            // Must contain digits to be a valid registration number
+            if (/\d/.test(cleaned)) {
+                return cleaned;
+            }
         }
     }
     for (const w of words) {
         const cleaned = w.replace(/[^A-Z0-9]/gi, '').toUpperCase();
         if (cleaned.length >= 8 && cleaned.length <= 11) {
-            return cleaned;
+            // Must contain digits to be a valid registration number
+            if (/\d/.test(cleaned)) {
+                return cleaned;
+            }
         }
     }
     return "";
@@ -191,13 +199,17 @@ exports.extractRC = (text) => {
 
     // Extraction for owner, engine, chassis, pan details
     // A. Owner's Name
-    const ownerHeaderIdx = lines.findIndex(l => /Owner/i.test(l));
+    let ownerHeaderIdx = lines.findIndex(l => /Owner\s*Name/i.test(l));
+    if (ownerHeaderIdx === -1) {
+        ownerHeaderIdx = lines.findIndex(l => /Owner\s*:/i.test(l) || /\bOwner\b/i.test(l));
+    }
     if (ownerHeaderIdx !== -1) {
         const sameLine = lines[ownerHeaderIdx].replace(/Owner\s*Name|Owner/gi, '').replace(/^[:\-\|\s]+/, '').trim();
-        if (sameLine && sameLine.length >= 3 && !/Father|Son|Fuel|Address/i.test(sameLine)) {
+        const letterCount = sameLine.replace(/[^A-Za-z]/g, '').length;
+        if (sameLine && letterCount >= 3 && !/Father|Son|Fuel|Address|Regn|Validity|Date/i.test(sameLine)) {
             owner_name = cleanField(sameLine);
         }
-        if (!owner_name && lines[ownerHeaderIdx + 1] && !/Father|Son|Fuel|Address/i.test(lines[ownerHeaderIdx + 1])) {
+        if (!owner_name && lines[ownerHeaderIdx + 1] && !/Father|Son|Fuel|Address|Regn|Validity|Date/i.test(lines[ownerHeaderIdx + 1])) {
             owner_name = cleanField(lines[ownerHeaderIdx + 1]);
         }
     }
@@ -206,10 +218,10 @@ exports.extractRC = (text) => {
     const engHeaderIdx = lines.findIndex(l => /Engine|Motor\s*No|ENG\.\s*NO/i.test(l));
     if (engHeaderIdx !== -1) {
         const sameLine = lines[engHeaderIdx].replace(/Engine\/Motor\s*No|Engine\s*No|ENG\.\s*NO\.|Engine|Motor\s*No|ENG|No/gi, '').replace(/^[:\-\|\s]+/, '').trim();
-        if (sameLine && sameLine.length >= 4) {
+        const candidate = sameLine.replace(/[^A-Z0-9]/gi, '');
+        if (candidate && candidate.length >= 6) {
             engine_number = sameLine;
-        }
-        if (!engine_number && lines[engHeaderIdx + 1]) {
+        } else if (lines[engHeaderIdx + 1]) {
             engine_number = lines[engHeaderIdx + 1].trim();
         }
     }
@@ -220,10 +232,10 @@ exports.extractRC = (text) => {
     const chasHeaderIdx = lines.findIndex(l => /Chassis|CH\.\s*NO/i.test(l));
     if (chasHeaderIdx !== -1) {
         const sameLine = lines[chasHeaderIdx].replace(/Chassis\s*No|CH\.\s*NO\.|Chassis/gi, '').replace(/^[:\-\|\s]+/, '').trim();
-        if (sameLine && sameLine.length >= 5) {
+        const candidate = sameLine.replace(/[^A-Z0-9]/gi, '');
+        if (candidate && candidate.length >= 8) {
             chassis_number = sameLine;
-        }
-        if (!chassis_number && lines[chasHeaderIdx + 1]) {
+        } else if (lines[chasHeaderIdx + 1]) {
             chassis_number = lines[chasHeaderIdx + 1].trim();
         }
     }
