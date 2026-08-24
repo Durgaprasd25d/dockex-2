@@ -64,7 +64,7 @@ const registerVehicle = async (req, res) => {
         formData.append("vehicle_class", vehicle_class.trim());
         formData.append("number_of_wheels", number_of_wheels.toString());
         formData.append("owner_pan_number", (owner_pan_number && owner_pan_number.trim()) || "DKZPS9565W");
-        formData.append("owner_name", (owner_name && owner_name.trim()) || "NARENDRA TAJAN");
+        formData.append("owner_name", (owner_name && owner_name.trim()) || "");
         formData.append("owner_contact", (owner_contact && owner_contact.trim()) || "9999999999");
 
         if (category) formData.append("category", category);

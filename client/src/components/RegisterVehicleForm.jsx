@@ -20,7 +20,7 @@ function RegisterVehicleForm({ data, onClose }) {
     // Form fields state prefilled from parsed Vehicle RC (ONLY the requested 7 fields)
     const [formData, setFormData] = useState({
         registration_number: data.registration_number || "",
-        owner_name: data.owner_name || "NARENDRA TAJAN",
+        owner_name: data.owner_name || "",
         owner_pan_number: data.owner_pan_number || "DKZPS9565W",
         engine_number: data.engine_number || "",
         chassis_number: data.chassis_number || "",
@@ -99,7 +99,7 @@ function RegisterVehicleForm({ data, onClose }) {
             bodyFormData.append("number_of_wheels", formData.number_of_wheels);
             bodyFormData.append("engine_number", formData.engine_number.trim());
             bodyFormData.append("chassis_number", formData.chassis_number.trim());
-            bodyFormData.append("owner_name", formData.owner_name.trim() || "NARENDRA TAJAN");
+            bodyFormData.append("owner_name", formData.owner_name.trim());
             bodyFormData.append("owner_pan_number", formData.owner_pan_number.trim() || "DKZPS9565W");
 
             // Static/Default fields required for external TMS API validation to succeed:
