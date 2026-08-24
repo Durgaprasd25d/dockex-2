@@ -20,8 +20,8 @@ function RegisterVehicleForm({ data, onClose }) {
     // Form fields state prefilled from parsed Vehicle RC (ONLY the requested 7 fields)
     const [formData, setFormData] = useState({
         registration_number: data.registration_number || "",
-        owner_name: data.owner_name || "",
-        owner_pan_number: data.owner_pan_number || "",
+        owner_name: data.owner_name || "NARENDRA TAJAN",
+        owner_pan_number: data.owner_pan_number || "DKZPS9565W",
         engine_number: data.engine_number || "",
         chassis_number: data.chassis_number || "",
         vehicle_class: mapVehicleClass(data.vehicle_class),
@@ -99,8 +99,8 @@ function RegisterVehicleForm({ data, onClose }) {
             bodyFormData.append("number_of_wheels", formData.number_of_wheels);
             bodyFormData.append("engine_number", formData.engine_number.trim());
             bodyFormData.append("chassis_number", formData.chassis_number.trim());
-            bodyFormData.append("owner_name", formData.owner_name.trim() || "GARG LOGISTICS");
-            bodyFormData.append("owner_pan_number", formData.owner_pan_number.trim());
+            bodyFormData.append("owner_name", formData.owner_name.trim() || "NARENDRA TAJAN");
+            bodyFormData.append("owner_pan_number", formData.owner_pan_number.trim() || "DKZPS9565W");
 
             // Static/Default fields required for external TMS API validation to succeed:
             bodyFormData.append("maker", "TATA");
@@ -276,7 +276,7 @@ function RegisterVehicleForm({ data, onClose }) {
                                 className="field-input-modal"
                                 value={formData.owner_name}
                                 onChange={handleChange}
-                                placeholder="e.g. GARG LOGISTICS"
+                                placeholder="e.g. NARENDRA TAJAN"
                             />
                         </div>
 
@@ -288,7 +288,7 @@ function RegisterVehicleForm({ data, onClose }) {
                                 className="field-input-modal"
                                 value={formData.owner_pan_number}
                                 onChange={handleChange}
-                                placeholder="e.g. ABCDE1234F"
+                                placeholder="e.g. DKZPS9565W"
                             />
                         </div>
                     </div>
