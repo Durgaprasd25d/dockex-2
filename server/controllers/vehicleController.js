@@ -40,10 +40,10 @@ const registerVehicle = async (req, res) => {
         } = req.body;
 
         // Validation for mandatory fields
-        if (!registration_number || !vehicle_class || !number_of_wheels || !owner_pan_number || !owner_name || !owner_contact) {
+        if (!registration_number || !vehicle_class || !number_of_wheels || !owner_name || !owner_contact) {
             return res.status(400).json({
                 success: false,
-                message: "Missing mandatory fields: registration_number, vehicle_class, number_of_wheels, owner_pan_number, owner_name, and owner_contact are required."
+                message: "Missing mandatory fields: registration_number, vehicle_class, number_of_wheels, owner_name, and owner_contact are required."
             });
         }
 
@@ -63,7 +63,7 @@ const registerVehicle = async (req, res) => {
         formData.append("registration_number", registration_number.trim());
         formData.append("vehicle_class", vehicle_class.trim());
         formData.append("number_of_wheels", number_of_wheels.toString());
-        formData.append("owner_pan_number", owner_pan_number.trim());
+        formData.append("owner_pan_number", owner_pan_number ? owner_pan_number.trim() : "");
         formData.append("owner_name", owner_name.trim());
         formData.append("owner_contact", owner_contact.trim());
 

@@ -100,13 +100,12 @@ function RegisterVehicleForm({ data, onClose }) {
             bodyFormData.append("engine_number", formData.engine_number.trim());
             bodyFormData.append("chassis_number", formData.chassis_number.trim());
             bodyFormData.append("owner_name", formData.owner_name.trim() || "GARG LOGISTICS");
-            bodyFormData.append("owner_pan_number", formData.owner_pan_number.trim() || "ABCDE1234F");
+            bodyFormData.append("owner_pan_number", formData.owner_pan_number.trim());
 
             // Static/Default fields required for external TMS API validation to succeed:
             bodyFormData.append("maker", "TATA");
             bodyFormData.append("model", "LPT 4825");
             bodyFormData.append("vehicle_color", "MAROON");
-            bodyFormData.append("body_type", "open trolly");
             bodyFormData.append("seating_capacity", "2");
             bodyFormData.append("standing_capacity", "0");
             bodyFormData.append("sleeper_capacity", "0");
